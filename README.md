@@ -2,7 +2,7 @@
 
 OCamle 语法参考：https://ocaml.org/manual/language.html
 
-# complie and run
+# compile and run llvm sample project
 
 Install llvm: https://apt.llvm.org/
 
@@ -12,7 +12,7 @@ apt-get install clang-format clang-tidy clang-tools clang clangd libc++-dev libc
 
 Test install: https://llvm.org/docs/tutorial/MyFirstLanguageFrontend/LangImpl03.html#full-code-listing
 
-Copy full code to `ch03.cpp` and build:
+Copy this full code to `ch02.cpp` and build:
 ```shell
 clang++ -g -O3 ch02.cpp `llvm-config --cxxflags --ldflags --system-libs --libs core`
 
@@ -32,7 +32,23 @@ sudo apt update
 sudo apt install opam -y
 ```
 
+# Tasks
 
+## ch01
+
+```shell
+clang++ -g -O3 ch01.cpp `llvm-config --cxxflags`
+
+./a.out
+```
+
+## ch02
+
+```shell
+clang++ -g -O3 ch02.cpp `llvm-config --cxxflags --ldflags --system-libs --libs core`
+
+./a.out
+```
 
 
 
