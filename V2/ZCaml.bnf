@@ -1,47 +1,3 @@
-(*             v1                  *)
-(* very simple ocaml language      *)
-expr ::= constant
-|	'(' expr ')'
-| expr { argument }+
-|	expr infix-op expr
-| 'if' expr 'then' expr [ 'else' expr ]
-| expr ';' expr
-| 'let' [ 'rec' ] let-binding { 'and' let-binding }
-| object-expr
-
-constant	::=	integer-literal
-| 'false'
-| 'true'
-| '()'
-
-argument	::=	expr
-
-integer-literal ::= [ '-' ]( digit ){ digit | '_' }
-
-digit ::= '0-9'
-
-infix-op ::= '+' | '-' | '*' | '/' | '=' | '<' | '>' | '<=' | '>=' | '<>'
-
-let-binding ::= pattern '=' expr
-| value-name { parameter } '=' expr # no label, no type
-
-parameter	::=	pattern
-
-pattern ::= value-name
-| '_'
-| constant
-| pattern 'as' value-name
-| '(' pattern ')'
-| pattern '|' pattern
-
-
-value-name ::= lowercase-ident
-
-lowercase-ident ::= ( 'a-z' | '_' ){ letter | digit | '_' | '\'' }
-
-object-expr ::= lowercase-ident
-
-
 (*               v2              *)
 (* add more feat                 *)
 
@@ -100,7 +56,7 @@ string-character	::=	regular-string-char
 # expr
 
 expr	::=	 constant
-|	'(' expr ')'
+| '(' expr ')'
 | 'begin' expr 'end'
 | expr :: expr # list
 | '[' expr { ';' expr } [';'] ']' # list
@@ -108,7 +64,7 @@ expr	::=	 constant
 | '{' field ['=' expr] { ';' field [ '=' expr ] } [';'] '}' # record, no type
 | expr { argument }+
 | '-' expr
-|	expr infix-op expr
+| expr infix-op expr
 | 'if' expr 'then' expr [ 'else' expr ]
 | 'while' expr 'do' expr 'done'
 | 'for' value-name '=' expr ( 'to' | 'downto' ) expr 'do' expr 'done'
