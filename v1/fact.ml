@@ -1,0 +1,53 @@
+let rec fact x =
+    if x <= 1 then 1 else x * fact (x - 1);;
+
+(*
+expr
+=>let
+=>rec
+=>let-binding
+  =>value-name
+    =>fact
+  =>parameter-list
+    =>[x]
+  =>'=' 
+  =>expr
+    =>if
+    =>expr
+      =>expr
+        =>object-expr
+          =>lowercase-ident
+            =>x
+      =>infix-op
+        =>'<='
+      =>expr
+        =>constant
+          =>integer-literal
+    =>then
+    =>expr
+      =>constant
+        =>integer-literal
+          =>1
+    =>else
+    =>expr
+      =>expr
+      =>infix-op
+        =>'*'
+      =>expr
+        =>expr
+        =>arguement
+         => expr
+          =>(
+          =>expr
+            =>expr
+              =>object-expr
+                =>lowercase-ident
+                  =>x
+              =>infix-op
+                =>'-'
+              =>expr
+                =>constant
+                  =>integer-literal
+                    =>1
+          =>)
+*)

@@ -1,12 +1,13 @@
 (*             v1                  *)
-(* very simple ocaml language            *)
+(* very simple ocaml language      *)
 expr ::= constant
 |	'(' expr ')'
 | expr { argument }+
 |	expr infix-op expr
 | 'if' expr 'then' expr [ 'else' expr ]
 | expr ';' expr
-| 'let' [ 'rec'] let-binding { 'and' let-binding } 'in' expr
+| 'let' [ 'rec' ] let-binding { 'and' let-binding }
+| object-expr
 
 constant	::=	integer-literal
 | 'false'
@@ -19,7 +20,7 @@ integer-literal ::= [ '-' ]( digit ){ digit | '_' }
 
 digit ::= '0-9'
 
-infix-op ::= '+' | '-' | '*' | '/' | '=' | '<' | '>' # not eq: '<>'
+infix-op ::= '+' | '-' | '*' | '/' | '=' | '<' | '>' | '<=' | '>=' | '<>'
 
 let-binding ::= pattern '=' expr
 | value-name { parameter } '=' expr # no label, no type
@@ -28,7 +29,7 @@ parameter	::=	pattern
 
 pattern ::= value-name
 | '_'
-| 'constant'
+| constant
 | pattern 'as' value-name
 | '(' pattern ')'
 | pattern '|' pattern
@@ -38,6 +39,7 @@ value-name ::= lowercase-ident
 
 lowercase-ident ::= ( 'a-z' | '_' ){ letter | digit | '_' | '\'' }
 
+object-expr ::= lowercase-ident
 
 
 (*               v2              *)
@@ -114,6 +116,7 @@ expr	::=	 constant
 | 'match' expr 'with' pattern-matching
 | 'try' expr 'with' pattern-matching
 | 'let' [ 'rec'] let-binding { 'and' let-binding } 'in' expr
+| object-expr
 
 
 constant	::=	integer-literal
@@ -150,7 +153,7 @@ pattern-matching ::= [ '|' ] pattern ['when' expr ] '->' expr { '|' pattern [ 'w
 
 pattern ::= value-name
 | '_'
-| 'constant'
+| constant
 | pattern 'as' value-name
 | '(' pattern ')'
 | pattern '|' pattern
@@ -163,3 +166,5 @@ let-binding ::= pattern '=' expr
 | value-name { parameter } '=' expr # no rename, no type
 
 parameter	::=	pattern
+
+object-expr ::= lowercase-ident
