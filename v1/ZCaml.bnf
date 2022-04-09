@@ -1,42 +1,52 @@
 (*             v1                  *)
 (* very simple ocaml language      *)
-expr ::= constant
-| '(' expr ')'
-| expr { argument }+
-| expr infix-op expr
-| 'if' expr 'then' expr [ 'else' expr ]
-| expr ';' expr
-| 'let' [ 'rec' ] let-binding { 'and' let-binding }
-| object-expr
+expr ::= constant                                  # ConstantExpr
+| '(' expr ')'                                     # ParenExpr
+| expr { argument }+                               # CallExpr
+| expr infix-op expr                               # BinaryExpr
+| 'if' expr 'then' expr [ 'else' expr ]            # CondExpr
+| expr ';' expr                                    # SeqExpr
+| 'let' [ 'rec' ] let-binding                      # LetExpr, LetRecExpr
+| object-expr                                      # ObjectExpr
 
-constant ::= integer-literal
-| 'false'
-| 'true'
-| '()'
+constant ::= integer-literal                       # IntegerLiteral
+| 'false'                                          # FalseLiteral
+| 'true'                                           # TrueLiteral
+| '()'                                             # UnitLiteral
 
-argument ::= expr
+argument ::= expr                                  # Argument
 
 integer-literal ::= [ '-' ]( digit ){ digit | '_' }
 
 digit ::= '0-9'
 
-infix-op ::= '+' | '-' | '*' | '/' | '=' | '<' | '>' | '<=' | '>=' | '<>'
+infix-op ::= 
+|'+'                                                # AddOp
+| '-'                                               # SubOp
+| '*'                                               # MulOp
+| '/'                                               # DivOp
+| '='                                               # EqOp
+| '<'                                               # LtOp
+| '>'                                               # GtOp
+| '<='                                              # LeOp
+| '>='                                              # GeOp
+| '<>'                                              # NeOp
 
-let-binding ::= pattern '=' expr
-| value-name { parameter } '=' expr # no label, no type
+let-binding ::= pattern '=' expr                   # LetPatternBinding
+| value-name { parameter } '=' expr                # LetFunctionBinding 
 
-parameter ::= pattern
+parameter ::= pattern                              # Parameter
 
-pattern ::= value-name
-| '_'
-| constant
-| pattern 'as' value-name
-| '(' pattern ')'
-| pattern '|' pattern
+pattern ::= value-name                             # ValueNamePattern
+| '_'                                              # DefaultPattern
+| constant                                         # ConstantPattern
+| pattern 'as' value-name                          # AsPattern
+| '(' pattern ')'                                  # ParenPattern
+| pattern '|' pattern                              # UnionPattern
 
 
-value-name ::= lowercase-ident
+value-name ::= lowercase-ident                     # LowercaseIdent
 
 lowercase-ident ::= ( 'a-z' | '_' ){ letter | digit | '_' | '\'' }
 
-object-expr ::= lowercase-ident
+object-expr ::= lowercase-ident                    # ObjectExpr
