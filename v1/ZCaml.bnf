@@ -9,12 +9,12 @@ expr ::= constant
 | 'let' [ 'rec' ] let-binding { 'and' let-binding }
 | object-expr
 
-constant	::=	integer-literal
+constant ::= integer-literal
 | 'false'
 | 'true'
 | '()'
 
-argument	::=	expr
+argument ::= expr
 
 integer-literal ::= [ '-' ]( digit ){ digit | '_' }
 
@@ -25,7 +25,7 @@ infix-op ::= '+' | '-' | '*' | '/' | '=' | '<' | '>' | '<=' | '>=' | '<>'
 let-binding ::= pattern '=' expr
 | value-name { parameter } '=' expr # no label, no type
 
-parameter	::=	pattern
+parameter ::= pattern
 
 pattern ::= value-name
 | '_'
