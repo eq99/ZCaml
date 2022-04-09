@@ -59,6 +59,7 @@ expr	::=	 constant
 | '[' expr { ';' expr } [';'] ']' # list
 | '[|' expr { ';' expr } [';'] '|]' # array
 | '{' field ['=' expr] { ';' field [ '=' expr ] } [';'] '}' # record, no type
+| expr { argument }+
 | '-' expr
 |	expr infix-op expr
 | 'if' expr 'then' expr [ 'else' expr ]
@@ -81,6 +82,8 @@ constant	::=	integer-literal
 
 field ::= field-name # fake
 field-name ::= lowercase-ident
+
+argument	::=	expr
 
 infix-op ::= infix-symbol
 | '*' | '+'| '-' | '=' | '!=' | '<' | '>' | 'or' | '||' | '&' | '&&' | ':='
@@ -112,4 +115,6 @@ pattern ::= value-name
 | '[|' pattern { ';' pattern } [';'] '|]'
 
 let-binding ::= pattern '=' expr
-| value-name '=' expr # no rename, no type
+| value-name { parameter } '=' expr # no rename, no type
+
+parameter	::=	pattern
