@@ -1,3 +1,48 @@
+(*             v1                  *)
+(* very simple ocaml language            *)
+expr ::= constant
+|	'(' expr ')'
+| expr { argument }+
+|	expr infix-op expr
+| 'if' expr 'then' expr [ 'else' expr ]
+| expr ';' expr
+| 'let' [ 'rec'] let-binding { 'and' let-binding } 'in' expr
+
+constant	::=	integer-literal
+| 'false'
+| 'true'
+| '()'
+
+argument	::=	expr
+
+integer-literal ::= [ '-' ]( digit ){ digit | '_' }
+
+digit ::= '0-9'
+
+infix-op ::= '+' | '-' | '*' | '/' | '=' | '<' | '>' # not eq: '<>'
+
+let-binding ::= pattern '=' expr
+| value-name { parameter } '=' expr # no label, no type
+
+parameter	::=	pattern
+
+pattern ::= value-name
+| '_'
+| 'constant'
+| pattern 'as' value-name
+| '(' pattern ')'
+| pattern '|' pattern
+
+
+value-name ::= lowercase-ident
+
+lowercase-ident ::= ( 'a-z' | '_' ){ letter | digit | '_' | '\'' }
+
+
+
+(*               v2              *)
+(* add more feat                 *)
+
 # comment
 comment ::= '(*' comment '*)' | ''
 
