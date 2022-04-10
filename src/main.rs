@@ -1,8 +1,8 @@
 use std::io;
 use std::io::prelude::*;
 use std::iter::Peekable;
-use std::str::Chars;
 use std::ops::DerefMut;
+use std::str::Chars;
 
 #[derive(Debug, Clone)]
 pub enum Token {
@@ -195,6 +195,19 @@ impl<'a> Lexer<'a> {
     }
 }
 
+impl<'a> Iterator for Lexer<'a> {
+    type Item = Token;
+
+    /// Lexes the next `Token` and returns it.
+    /// On EOF or failure, `None` will be returned.
+    fn next(&mut self) -> Option<Self::Item> {
+        match self.lex() {
+            Ok(Token::EOF) | Err(_) => None,
+            Ok(token) => Some(token),
+        }
+    }
+}
+
 macro_rules! print_flush {
     ( $( $x:expr ),* ) => {
         print!( $($x, )* );
@@ -219,6 +232,11 @@ fn run_toplevel() {
         } else if input.chars().all(char::is_whitespace) {
             continue;
         }
+
+        println!(
+            "-> Attempting to parse lexed input: \n{:?}\n",
+            Lexer::new(input.as_str()).collect::<Vec<Token>>()
+        );
     }
 }
 
