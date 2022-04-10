@@ -1,0 +1,126 @@
+(*               v2              *)
+(* add more feat                 *)
+
+# comment
+comment ::= '(*' comment '*)' | ''
+
+# identifier
+ident	::=	( letter | '_'){ letter | digit | '_' | '\''}
+capitalized-ident ::= ( 'A-Z' ){ letter | digit | '_' | '\'' }
+lowercase-ident ::= ( 'a-z' | '_' ){ letter | digit | '_' | '\'' }
+
+letter  ::=	'A-Z' | 'a-z'
+digit ::= '0-9'
+
+# Integer literals
+integer-literal ::= [ '-' ]( digit ){ digit | '_' } # fake
+
+# Character literals
+char-literal ::= '\'' regular-char '\'' | '\'' escape-sequence '\''
+
+escape-sequence ::= '\\' ( '\\' | '"' | '\'' | 'n' | 't' | 'b' | 'r' | ' ') # fake
+
+
+# String literals
+string-literal ::= '"' { string-character } '"'
+| '{' quoted-string-id '|' { any-char } '|' quoted-string-id '}'
+
+quoted-string-id	::=	{ 'a-z' | '_' }
+
+string-character	::=	regular-string-char
+| escape-sequence # fake
+
+# key words
+      and         as          assert      asr         begin       class
+      constraint  do          done        downto      else        end
+      exception   external    false       for         fun         function
+      functor     if          in          include     inherit     initializer
+      land        lazy        let         lor         lsl         lsr
+      lxor        match       method      mod         module      mutable
+      new         nonrec      object      of          open        or
+      private     rec         sig         struct      then        to
+      true        try         type        val         virtual     when
+      while       with
+
+    !=    #     &     &&    '     (     )     *     +     ,     -
+    -.    ->    .     ..    .~    :     ::    :=    :>    ;     ;;
+    <     <-    =     >     >]    >}    ?     [     [<    [>    [|
+    ]     _     `     {     {<    |     |]    ||    }     ~
+
+    parser    value    $     $$    $:    <:    <<    >>    ??
+
+# end key words
+
+
+
+# expr
+
+expr	::=	 constant
+| '(' expr ')'
+| 'begin' expr 'end'
+| expr :: expr # list
+| '[' expr { ';' expr } [';'] ']' # list
+| '[|' expr { ';' expr } [';'] '|]' # array
+| '{' field ['=' expr] { ';' field [ '=' expr ] } [';'] '}' # record, no type
+| expr { argument }+
+| '-' expr
+| expr infix-op expr
+| 'if' expr 'then' expr [ 'else' expr ]
+| 'while' expr 'do' expr 'done'
+| 'for' value-name '=' expr ( 'to' | 'downto' ) expr 'do' expr 'done'
+| expr ';' expr
+| 'match' expr 'with' pattern-matching
+| 'try' expr 'with' pattern-matching
+| 'let' [ 'rec'] let-binding { 'and' let-binding } 'in' expr
+| object-expr
+
+
+constant	::=	integer-literal
+| char-literal
+| string-literal
+| 'false'
+| 'true'
+| '()'
+| '[]'
+
+
+field ::= field-name # fake
+field-name ::= lowercase-ident
+
+argument	::=	expr
+
+infix-op ::= infix-symbol
+| '*' | '+'| '-' | '=' | '!=' | '<' | '>' | 'or' | '||' | '&' | '&&' | ':='
+| 'mod' | 'land' | 'lor' | 'lxor' | 'lsl' | 'lsr' | 'asr'
+
+infix-symbol ::= (core-operator-char | '%' | '<') { operator-char }
+
+operator-char ::= '~' | '!' | '?' | core-operator-char | '%' | '<' | ':' | '.'
+
+core-operator-char ::= '$' | '&' | '*' | '+' | '-' | '/' | '=' | '>' | '^' | '|'
+
+value-name ::= lowercase-ident
+| '(' operator-name ')'
+
+operator-name ::= infix-op
+
+
+pattern-matching ::= [ '|' ] pattern ['when' expr ] '->' expr { '|' pattern [ 'when' expr ] '->' expr }
+
+pattern ::= value-name
+| '_'
+| constant
+| pattern 'as' value-name
+| '(' pattern ')'
+| pattern '|' pattern
+| '{' field ['=' pattern] { ';' field [ '=' pattern ] } [';_'] [';'] '}'
+| '[' pattern { ';' pattern } [';'] ']'
+| pattern '::' pattern
+| '[|' pattern { ';' pattern } [';'] '|]'
+
+let-binding ::= pattern '=' expr
+| value-name { parameter } '=' expr # no rename, no type
+
+parameter	::=	pattern
+
+object-expr ::= lowercase-ident
