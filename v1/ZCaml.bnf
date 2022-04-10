@@ -6,13 +6,15 @@ expr ::= constant                                  # ConstantExpr
 | expr infix-op expr                               # BinaryExpr
 | 'if' expr 'then' expr [ 'else' expr ]            # CondExpr
 | expr ';' expr                                    # SeqExpr
-| 'let' [ 'rec' ] let-binding                      # LetExpr, LetRecExpr
+| 'let' [ 'rec' ] let-binding                      # LetBindingExpr
 | object-expr                                      # ObjectExpr
 
-constant ::= integer-literal                       # IntegerLiteral
-| 'false'                                          # FalseLiteral
-| 'true'                                           # TrueLiteral
-| '()'                                             # UnitLiteral
+eof ::= ';;' | EOF                                 # tok_eof
+
+constant ::= integer-literal                       # tok_int
+| 'false'                                          # tok_false
+| 'true'                                           # tok_true
+| '()'                                             # tok_unit
 
 argument ::= expr                                  # Argument
 
