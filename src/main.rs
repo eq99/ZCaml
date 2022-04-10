@@ -6,24 +6,21 @@ use std::str::Chars;
 
 #[derive(Debug, Clone)]
 pub enum Token {
-    Binary,
-    Comma,
-    Comment,
-    Def,
-    Else,
-    EOF,
-    Extern,
-    For,
-    Ident(String),
+    SemiColon,
+    Let,
+    Rec,
     If,
-    In,
-    LParen,
-    Number(f64),
-    Op(char),
-    RParen,
+    Else,
     Then,
-    Unary,
-    Var,
+    True,
+    False,
+    Unit,
+    EOF,
+    Ident(String),
+    LParen,
+    RParen,
+    Integer(i32),
+    Op(String, i32), // operator, precedence
 }
 
 /// Defines an error encountered by the `Lexer`.
@@ -111,46 +108,38 @@ impl<'a> Lexer<'a> {
 
         // Actually get the next token.
         let result = match next.unwrap() {
-            '(' => Ok(Token::LParen),
-            ')' => Ok(Token::RParen),
-            ',' => Ok(Token::Comma),
-
-            '#' => {
-                // Comment
-                loop {
-                    let ch = chars.next();
-                    pos += 1;
-
-                    if ch == Some('\n') {
-                        break;
-                    }
-                }
-
-                Ok(Token::Comment)
-            }
-
-            '.' | '0'..='9' => {
-                // Parse number literal
-                loop {
-                    let ch = match chars.peek() {
-                        Some(ch) => *ch,
-                        None => return Ok(Token::EOF),
-                    };
-
-                    // Parse float.
-                    if ch != '.' && !ch.is_digit(16) {
-                        break;
-                    }
-
+            '(' => {
+                if chars.peek().unwrap() == &')' {
                     chars.next();
                     pos += 1;
-                }
 
-                Ok(Token::Number(src[start..pos].parse().unwrap()))
+                    Ok(Token::Unit)
+                } else {
+                    Ok(Token::LParen)
+                }
+            }
+            ')' => Ok(Token::RParen),
+            ';' => {
+                if chars.peek().unwrap() == &';' {
+                    chars.next();
+                    pos += 1;
+
+                    Ok(Token::EOF)
+                } else {
+                    Ok(Token::SemiColon)
+                }
             }
 
+            '=' => Ok(Token::Op("=".to_string(), 1)),
+            '+' => Ok(Token::Op("+".to_string(), 2)),
+            '-' => Ok(Token::Op("-".to_string(), 2)),
+            '*' => Ok(Token::Op("*".to_string(), 3)),
+            '/' => Ok(Token::Op("/".to_string(), 3)),
+            '<' => Ok(Token::Op("<".to_string(), 4)),
+            '>' => Ok(Token::Op(">".to_string(), 4)),
+
             'a'..='z' | 'A'..='Z' | '_' => {
-                // Parse identifier
+                // Parse ident, keyword, or Integer.
                 loop {
                     let ch = match chars.peek() {
                         Some(ch) => *ch,
@@ -167,24 +156,21 @@ impl<'a> Lexer<'a> {
                 }
 
                 match &src[start..pos] {
-                    "def" => Ok(Token::Def),
-                    "extern" => Ok(Token::Extern),
                     "if" => Ok(Token::If),
                     "then" => Ok(Token::Then),
                     "else" => Ok(Token::Else),
-                    "for" => Ok(Token::For),
-                    "in" => Ok(Token::In),
-                    "unary" => Ok(Token::Unary),
-                    "binary" => Ok(Token::Binary),
-                    "var" => Ok(Token::Var),
+                    "true" => Ok(Token::True),
+                    "false" => Ok(Token::False),
+                    "let" => Ok(Token::Let),
+                    "rec" => Ok(Token::Rec),
 
                     ident => Ok(Token::Ident(ident.to_string())),
                 }
             }
 
-            op => {
+            _ => {
                 // Parse operator
-                Ok(Token::Op(op))
+                Err(LexError::with_index("Unexpected character", pos))
             }
         };
 
@@ -234,7 +220,7 @@ fn run_toplevel() {
         }
 
         println!(
-            "-> Attempting to parse lexed input: \n{:?}\n",
+            "Tokens: \n{:?}\n",
             Lexer::new(input.as_str()).collect::<Vec<Token>>()
         );
     }

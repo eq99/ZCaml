@@ -49,6 +49,7 @@ pattern ::= value-name                             # ValueNamePattern
 
 value-name ::= lowercase-ident                     # LowercaseIdent
 
-lowercase-ident ::= ( 'a-z' | '_' ){ letter | digit | '_' | '\'' }
+lowercase-ident ::= ( 'a-z' | '_' ){ letter | digit | '_' }
+letter  ::=	'A-Z' | 'a-z'
 
 object-expr ::= lowercase-ident                    # ObjectExpr
