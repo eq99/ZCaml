@@ -162,7 +162,7 @@ impl<'a> Lexer<'a> {
 
             'a'..='z' | '_' => {
                 // lowercase ident
-                while chars.peek().unwrap().is_alphanumeric() || chars.peek().unwrap() == &'_' {
+                while chars.peek().unwrap().is_alphanumeric() || chars.peek().unwrap() == &'_' || chars.peek().unwrap() == &'\'' {
                     chars.next();
                     pos += 1;
                 }
