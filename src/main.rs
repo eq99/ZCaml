@@ -16,7 +16,8 @@ pub enum Token {
     False,
     Unit,
     EOF,
-    Ident(String),
+    LowercaseIdent(String),
+    CapitalizedIdent(String),
     LParen,
     RParen,
     Integer(i32),
@@ -162,7 +163,10 @@ impl<'a> Lexer<'a> {
 
             'a'..='z' | '_' => {
                 // lowercase ident
-                while chars.peek().unwrap().is_alphanumeric() || chars.peek().unwrap() == &'_' || chars.peek().unwrap() == &'\'' {
+                while chars.peek().unwrap().is_alphanumeric()
+                    || chars.peek().unwrap() == &'_'
+                    || chars.peek().unwrap() == &'\''
+                {
                     chars.next();
                     pos += 1;
                 }
@@ -177,8 +181,21 @@ impl<'a> Lexer<'a> {
                     "let" => Ok(Token::Let),
                     "rec" => Ok(Token::Rec),
 
-                    ident => Ok(Token::Ident(ident.to_string())),
+                    ident => Ok(Token::LowercaseIdent(ident.to_string())),
                 }
+            }
+
+            'A'..='Z' => {
+                // capitalized ident
+                while chars.peek().unwrap().is_alphanumeric()
+                    || chars.peek().unwrap() == &'_'
+                    || chars.peek().unwrap() == &'\''
+                {
+                    chars.next();
+                    pos += 1;
+                }
+
+                Ok(Token::CapitalizedIdent(src[start..pos].to_string()))
             }
 
             '0'..='9' => {
