@@ -23,7 +23,7 @@ integer-literal ::= [ '-' ]( digit ){ digit | '_' }
 digit ::= '0-9'
 
 infix-op ::= 
-|'+'                                                # AddOp
+| '+'                                                # AddOp
 | '-'                                               # SubOp
 | '*'                                               # MulOp
 | '/'                                               # DivOp

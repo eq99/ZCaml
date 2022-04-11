@@ -38,10 +38,7 @@ impl LexError {
     }
 
     pub fn with_index(msg: &'static str, index: usize) -> LexError {
-        LexError {
-            error: msg,
-            index: index,
-        }
+        LexError { error: msg, index }
     }
 }
 
@@ -108,6 +105,7 @@ impl<'a> Lexer<'a> {
 
         // Actually get the next token.
         let result = match next.unwrap() {
+            // unit or (
             '(' => {
                 if chars.peek().unwrap() == &')' {
                     chars.next();
@@ -119,6 +117,8 @@ impl<'a> Lexer<'a> {
                 }
             }
             ')' => Ok(Token::RParen),
+
+            // ; or ;;
             ';' => {
                 if chars.peek().unwrap() == &';' {
                     chars.next();
@@ -135,27 +135,40 @@ impl<'a> Lexer<'a> {
             '-' => Ok(Token::Op("-".to_string(), 2)),
             '*' => Ok(Token::Op("*".to_string(), 3)),
             '/' => Ok(Token::Op("/".to_string(), 3)),
-            '<' => Ok(Token::Op("<".to_string(), 4)),
-            '>' => Ok(Token::Op(">".to_string(), 4)),
+            '<' => {
+                if chars.peek().unwrap() == &'=' {
+                    chars.next();
+                    pos += 1;
 
-            'a'..='z' | 'A'..='Z' | '_' => {
-                // Parse ident, keyword, or Integer.
-                loop {
-                    let ch = match chars.peek() {
-                        Some(ch) => *ch,
-                        None => return Ok(Token::EOF),
-                    };
+                    Ok(Token::Op("<=".to_string(), 4))
+                } else if chars.peek().unwrap() == &'>' {
+                    chars.next();
+                    pos += 1;
+                    Ok(Token::Op("<>".to_string(), 4))
+                } else {
+                    Ok(Token::Op("<".to_string(), 4))
+                }
+            }
+            '>' => {
+                if chars.peek().unwrap() == &'=' {
+                    chars.next();
+                    pos += 1;
 
-                    // A word-like identifier only contains underscores and alphanumeric characters.
-                    if ch != '_' && !ch.is_alphanumeric() {
-                        break;
-                    }
+                    Ok(Token::Op(">=".to_string(), 4))
+                } else {
+                    Ok(Token::Op(">".to_string(), 4))
+                }
+            }
 
+            'a'..='z' | '_' => {
+                // lowercase ident
+                while chars.peek().unwrap().is_alphanumeric() || chars.peek().unwrap() == &'_' {
                     chars.next();
                     pos += 1;
                 }
 
                 match &src[start..pos] {
+                    // key words
                     "if" => Ok(Token::If),
                     "then" => Ok(Token::Then),
                     "else" => Ok(Token::Else),
@@ -168,10 +181,19 @@ impl<'a> Lexer<'a> {
                 }
             }
 
-            _ => {
-                // Parse operator
-                Err(LexError::with_index("Unexpected character", pos))
+            '0'..='9' => {
+                // integer
+                while chars.peek().unwrap().is_digit(10) || chars.peek().unwrap() == &'_' {
+                    chars.next();
+                    pos += 1;
+                }
+
+                Ok(Token::Integer(
+                    src[start..pos].replace("_", "").parse().unwrap(),
+                ))
             }
+
+            _ => Err(LexError::with_index("Unexpected character", pos)),
         };
 
         // Update stored position, and return
