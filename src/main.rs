@@ -252,6 +252,11 @@ pub enum ExprAST {
 
     Unit,
 
+    Unary {
+        op: String,
+        expr: Box<ExprAST>,
+    },
+
     Binary {
         left: Box<ExprAST>,
         op: String,
@@ -276,9 +281,13 @@ impl ExprAST {
             ExprAST::LowerCaseIdent { name } => println!("{}{}", indent, name),
             ExprAST::Unit => println!("{}Unit", indent),
             ExprAST::Binary { left, op, right } => {
-                println!("{}{}", indent, op);
+                println!("{}Binary:({})", indent, op);
                 left.print_tree(level + 1);
                 right.print_tree(level + 1);
+            }
+            ExprAST::Unary { op, expr } => {
+                print!("{}Unary:({})", indent, op);
+                expr.print_tree(level + 1);
             }
             ExprAST::Call { fn_name, args } => {
                 println!("{}Call: {}", indent, fn_name);
@@ -375,7 +384,7 @@ impl Parser {
 
     /// Parses any expression.
     fn parse_expr(&mut self) -> Result<ExprAST, &'static str> {
-        let left = self.parse_primary()?;
+        let left = self.parse_unary()?;
         self.parse_op_rhs(0, left)
     }
 
@@ -387,6 +396,32 @@ impl Parser {
             Token::LParen => self.parse_paren_expr(),
             _ => Err("Unknown expression."),
         }
+    }
+
+    // unary ::= primary
+    //       ::= ('-' | '+') primary
+    fn parse_unary(&mut self) -> Result<ExprAST, &'static str> {
+        let op_name = match self.current()? {
+            Token::Op(op_name, _) => {
+                // eat operator
+                self.advance()?;
+
+                // '-2', '+3'
+                match op_name.as_str() {
+                    "+" => String::from("+"),
+                    "-" => String::from("-"),
+                    _ => return Err("bad unary operator."),
+                }
+            }
+
+            // just a primary expression
+            _ => return self.parse_primary(),
+        };
+
+        Ok(ExprAST::Unary {
+            op: op_name,
+            expr: Box::new(self.parse_primary()?),
+        })
     }
 
     /// Parses a binary expression, given its left-hand expression.
@@ -406,7 +441,7 @@ impl Parser {
             // eat op or ignore eof error
             let _ = self.advance();
 
-            let mut right = self.parse_primary()?;
+            let mut right = self.parse_unary()?;
 
             let next_prec = self.get_tok_precedence();
 

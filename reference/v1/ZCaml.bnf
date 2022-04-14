@@ -6,22 +6,26 @@ module-items ::= {;;} ( definition | expr ) { {;;} ( definition | expr ) }{ ;; }
 
 definition	::=	'let' ['rec'] let-binding { 'and' let-binding }
 
+(*                     raw grammar                 *)
 expr ::= constant                                  # ConstantExpr
 | '(' expr ')'                                     # ParenExpr
 | expr { argument }+                               # CallExpr
 | expr infix-op expr                               # BinaryExpr
 | 'if' expr 'then' expr [ 'else' expr ]            # CondExpr
-| expr ';' expr                                    # SeqExpr
 # | 'let' [ 'rec' ] let-binding { 'and' let-binding } 'in' expr                   # LetBindingExpr
 | lowercase-ident                                  # ObjectExpr
+(*                     end grammar                 *)
 
 # rewrite rules
-expr ::= primary binoprhs
-binoprhs ::= ('+' primary)*
+expr ::= unary binoprhs
+binoprhs ::= ('+' unary)*
 
-primary ::= identexpr
-| numberexpr
-| parenexpr
+unary ::= primary
+| '-' primary
+
+primary ::= identexpr  # CallExpr,  ObjectExpr
+| numberexpr  # ConstantExpr
+| parenexpr # '(' expr ')'   
 
 identexpr ::= ident
 | ident '(' expr* ')'

@@ -1,8 +1,11 @@
 toplevelexpr ::= expression
 
-expression ::= primary binoprhs
+expression ::= unary binoprhs
 
-binoprhs ::= ('+' primary)*
+binoprhs ::= ('+' unary)*
+
+unary ::= primary
+| '-' unary
 
 primary ::= identifierexpr
 | numberexpr
