@@ -1,13 +1,35 @@
 (*             v1                  *)
 (* very simple ocaml language      *)
+
+implementation ::= [ module-items ]
+module-items ::= {;;} ( definition | expr ) { {;;} ( definition | expr ) }{ ;; }
+
+definition	::=	'let' ['rec'] let-binding { 'and' let-binding }
+
 expr ::= constant                                  # ConstantExpr
 | '(' expr ')'                                     # ParenExpr
 | expr { argument }+                               # CallExpr
 | expr infix-op expr                               # BinaryExpr
 | 'if' expr 'then' expr [ 'else' expr ]            # CondExpr
 | expr ';' expr                                    # SeqExpr
-| 'let' [ 'rec' ] let-binding                      # LetBindingExpr
-| object-expr                                      # ObjectExpr
+# | 'let' [ 'rec' ] let-binding { 'and' let-binding } 'in' expr                   # LetBindingExpr
+| lowercase-ident                                  # ObjectExpr
+
+# rewrite rules
+expr ::= primary binoprhs
+binoprhs ::= ('+' primary)*
+
+primary ::= identexpr
+| numberexpr
+| parenexpr
+
+identexpr ::= ident
+| ident '(' expr* ')'
+
+parenexpr ::= '(' expr ')'
+# end rewrite
+
+
 
 eof ::= ';;' | EOF                                 # tok_eof
 
@@ -23,7 +45,7 @@ integer-literal ::= [ '-' ]( digit ){ digit | '_' }
 digit ::= '0-9'
 
 infix-op ::= 
-| '+'                                                # AddOp
+| '+'                                               # AddOp
 | '-'                                               # SubOp
 | '*'                                               # MulOp
 | '/'                                               # DivOp

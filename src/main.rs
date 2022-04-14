@@ -131,23 +131,23 @@ impl<'a> Lexer<'a> {
                 }
             }
 
-            '=' => Ok(Token::Op("=".to_string(), 1)),
-            '+' => Ok(Token::Op("+".to_string(), 2)),
-            '-' => Ok(Token::Op("-".to_string(), 2)),
-            '*' => Ok(Token::Op("*".to_string(), 3)),
-            '/' => Ok(Token::Op("/".to_string(), 3)),
+            '=' => Ok(Token::Op("=".to_string(), 10)),
+            '+' => Ok(Token::Op("+".to_string(), 20)),
+            '-' => Ok(Token::Op("-".to_string(), 20)),
+            '*' => Ok(Token::Op("*".to_string(), 40)),
+            '/' => Ok(Token::Op("/".to_string(), 40)),
             '<' => {
                 if chars.peek().unwrap() == &'=' {
                     chars.next();
                     pos += 1;
 
-                    Ok(Token::Op("<=".to_string(), 4))
+                    Ok(Token::Op("<=".to_string(), 10))
                 } else if chars.peek().unwrap() == &'>' {
                     chars.next();
                     pos += 1;
-                    Ok(Token::Op("<>".to_string(), 4))
+                    Ok(Token::Op("<>".to_string(), 10))
                 } else {
-                    Ok(Token::Op("<".to_string(), 4))
+                    Ok(Token::Op("<".to_string(), 10))
                 }
             }
             '>' => {
@@ -155,9 +155,9 @@ impl<'a> Lexer<'a> {
                     chars.next();
                     pos += 1;
 
-                    Ok(Token::Op(">=".to_string(), 4))
+                    Ok(Token::Op(">=".to_string(), 10))
                 } else {
-                    Ok(Token::Op(">".to_string(), 4))
+                    Ok(Token::Op(">".to_string(), 10))
                 }
             }
 
@@ -231,6 +231,263 @@ impl<'a> Iterator for Lexer<'a> {
             Ok(token) => Some(token),
         }
     }
+}
+
+// ======================================================================================
+// PARSER ===============================================================================
+// ======================================================================================
+/// Defines a primitive expression.
+
+#[derive(Debug)]
+pub enum ExprAST {
+    Integer {
+        value: i32,
+    },
+
+    Bool {
+        value: bool,
+    },
+
+    LowerCaseIdent {
+        name: String,
+    },
+
+    Unit,
+
+    Binary {
+        left: Box<ExprAST>,
+        op: String,
+        right: Box<ExprAST>,
+    },
+
+    Call {
+        fn_name: String,
+        args: Vec<ExprAST>,
+    },
+}
+
+/// Represents the `Expr` parser.
+pub struct Parser {
+    tokens: Vec<Token>,
+    pos: usize,
+}
+
+// I'm ignoring the 'must_use' lint in order to call 'self.advance' without checking
+// the result when an EOF is acceptable.
+#[allow(unused_must_use)]
+impl Parser {
+    /// Creates a new parser, given an input `str` and a `HashMap` binding
+    /// an operator and its precedence in binary expressions.
+    pub fn new(input: String) -> Self {
+        let mut lexer = Lexer::new(input.as_str());
+        let tokens = lexer.by_ref().collect();
+
+        Parser { pos: 0, tokens }
+    }
+
+    /// Parses the content of the parser.
+    pub fn parse(&mut self) -> Result<(), &'static str> {
+        let result = self.parse_expr();
+        match result {
+            Ok(result) => {
+                if !self.at_end() {
+                    Err("Unexpected token after parsed expression.")
+                } else {
+                    Ok(())
+                }
+            }
+
+            _ => Err("Failed to parse expression."),
+        }
+    }
+
+    /// Returns the current `Token`, without performing safety checks beforehand.
+    fn curr(&self) -> Token {
+        self.tokens[self.pos].clone()
+    }
+
+    /// Returns the current `Token`, or an error that
+    /// indicates that the end of the file has been unexpectedly reached if it is the case.
+    fn current(&self) -> Result<Token, &'static str> {
+        if self.pos >= self.tokens.len() {
+            Err("Unexpected end of file.")
+        } else {
+            Ok(self.tokens[self.pos].clone())
+        }
+    }
+
+    /// Advances the position, and returns an empty `Result` whose error
+    /// indicates that the end of the file has been unexpectedly reached.
+    /// This allows to use the `self.advance()?;` syntax.
+    fn advance(&mut self) -> Result<(), &'static str> {
+        let npos = self.pos + 1;
+
+        self.pos = npos;
+
+        if npos < self.tokens.len() {
+            Ok(())
+        } else {
+            Err("Unexpected end of file.")
+        }
+    }
+
+    /// Returns a value indicating whether or not the `Parser`
+    /// has reached the end of the input.
+    fn at_end(&self) -> bool {
+        self.pos >= self.tokens.len()
+    }
+
+    /// Returns the precedence of the current `Token`, or 0 if it is not recognized as a binary operator.
+    fn get_tok_precedence(&self) -> i32 {
+        if let Ok(Token::Op(name, preced)) = self.current() {
+            preced
+        } else {
+            -1
+        }
+    }
+
+    /// Parses any expression.
+    fn parse_expr(&mut self) -> Result<ExprAST, &'static str> {
+
+        let mut left = self.parse_primary()?;
+
+        match self.parse_unary_expr() {
+            Ok(left) => self.parse_binary_expr(0, left),
+            err => err,
+        }
+    }
+
+    /// Parses a primary expression (an identifier, a number or a parenthesized expression).
+    fn parse_primary(&mut self) -> Result<ExprAST, &'static str> {
+        match self.curr() {
+            Token::LowercaseIdent(_) => self.parse_ident_expr(),
+            Token::Integer(_) => self.parse_integer_expr(),
+            Token::LParen => self.parse_paren_expr(),
+            _ => Err("Unknown expression."),
+        }
+    }
+
+    /// Parses a binary expression, given its left-hand expression.
+    fn parse_binary_expr(&mut self, prec: i32, mut left: Expr) -> Result<Expr, &'static str> {
+        loop {
+            let curr_prec = self.get_tok_precedence();
+
+            if curr_prec < prec || self.at_end() {
+                return Ok(left);
+            }
+
+            let op = match self.curr() {
+                Token::Op(op, pred) => op,
+                _ => return Err("Invalid operator."),
+            };
+
+            self.advance()?;
+
+            let mut right = self.parse_unary_expr()?;
+
+            let next_prec = self.get_tok_precedence();
+
+            if curr_prec < next_prec {
+                right = self.parse_binary_expr(curr_prec + 1, right)?;
+            }
+
+            left = Expr::Binary {
+                op: op,
+                left: Box::new(left),
+                right: Box::new(right),
+            };
+        }
+    }
+
+    /// Parses a integer .
+    fn parse_integer_expr(&mut self) -> Result<ExprAST, &'static str> {
+        // Simply convert Token::Number to Expr::Number
+        match self.curr() {
+            Token::Integer(integer) => {
+                self.advance();
+                Ok(ExprAST::Integer { value: integer })
+            }
+            _ => Err("Expected integer."),
+        }
+    }
+
+    /// Parses an expression enclosed in parenthesis.
+    fn parse_paren_expr(&mut self) -> Result<ExprAST, &'static str> {
+        match self.current()? {
+            LParen => (),
+            _ => return Err("Expected '(' character at start of parenthesized expression."),
+        }
+
+        self.advance()?;
+
+        let expr = self.parse_expr()?;
+
+        match self.current()? {
+            RParen => (),
+            _ => return Err("Expected ')' character at end of parenthesized expression."),
+        }
+
+        self.advance();
+
+        Ok(expr)
+    }
+
+    /// Parses an expression that starts with an identifier (either a variable or a function call).
+    fn parse_ident_expr(&mut self) -> Result<ExprAST, &'static str> {
+        let lowercase_ident = match self.curr() {
+            Token::LowercaseIdent(id) => id,
+            _ => return Err("bad identifier."),
+        };
+
+        // tail ident
+        if self.advance().is_err() {
+            return Ok(ExprAST::LowerCaseIdent {
+                name: lowercase_ident.clone(),
+            });
+        }
+
+        // expr ::= expr { argument }+
+        match self.curr() {
+            Token::LParen => {
+                // eat '('
+                self.advance()?;
+
+                // parse arguments
+                if let Token::RParen = self.curr() {
+                    return Ok(ExprAST::Call {
+                        fn_name: lowercase_ident.clone(),
+                        args: vec![],
+                    });
+                }
+
+                let mut args = vec![];
+
+                loop {
+                    args.push(self.parse_expr()?);
+
+                    if let Token::RParen = self.current()? {
+                        break;
+                    }
+                    self.advance()?;
+                }
+
+                // eat ')'
+                self.advance();
+
+                Ok(ExprAST::Call {
+                    fn_name: lowercase_ident.clone(),
+                    args,
+                })
+            }
+
+            // '(' ident ')'
+            _ => Ok(ExprAST::LowerCaseIdent {
+                name: lowercase_ident,
+            }),
+        }
+    }
+
+    
 }
 
 macro_rules! print_flush {
