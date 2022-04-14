@@ -1,15 +1,8 @@
-use lazy_static::lazy_static;
-use std::fmt::{self, Display, Formatter};
 use std::io;
 use std::io::prelude::*;
 use std::iter::Peekable;
 use std::ops::DerefMut;
 use std::str::Chars;
-use std::sync::Mutex;
-
-lazy_static! {
-    static ref INDENT: Mutex<String> = Mutex::new(String::from(""));
-}
 
 #[derive(Debug, Clone)]
 pub enum Token {
@@ -240,11 +233,9 @@ impl<'a> Iterator for Lexer<'a> {
     }
 }
 
-// ======================================================================================
-// PARSER ===============================================================================
-// ======================================================================================
-/// Defines a primitive expression.
-
+//===----------------------------------------------------------------------===//
+// Parser
+//===----------------------------------------------------------------------===//
 #[derive(Debug)]
 pub enum ExprAST {
     Integer {
@@ -274,7 +265,9 @@ pub enum ExprAST {
 }
 
 impl ExprAST {
+    // display AST as tree
     pub fn print_tree(&self, level: usize) {
+        // tree level
         let indent = "   ".repeat(level);
 
         match self {
@@ -305,7 +298,7 @@ pub struct Parser {
 
 // I'm ignoring the 'must_use' lint in order to call 'self.advance' without checking
 // the result when an EOF is acceptable.
-#[allow(unused_must_use)]
+// #[allow(unused_must_use)]
 impl Parser {
     /// Creates a new parser, given an input `str` and a `HashMap` binding
     /// an operator and its precedence in binary expressions.
@@ -410,8 +403,8 @@ impl Parser {
                 _ => return Err("Invalid operator."),
             };
 
-            // eat op
-            self.advance()?;
+            // eat op or ignore eof error
+            let _ = self.advance();
 
             let mut right = self.parse_primary()?;
 
@@ -435,7 +428,7 @@ impl Parser {
         match self.curr() {
             Token::Integer(integer) => {
                 // eat integer
-                self.advance();
+                let _ = self.advance();
                 Ok(ExprAST::Integer { value: integer })
             }
             _ => Err("Expected integer."),
@@ -460,7 +453,7 @@ impl Parser {
         }
 
         // eat ')'
-        self.advance();
+        let _ = self.advance();
 
         Ok(expr)
     }
@@ -505,7 +498,7 @@ impl Parser {
                 }
 
                 // eat ')'
-                self.advance();
+                let _ = self.advance();
 
                 Ok(ExprAST::Call {
                     fn_name: lowercase_ident.clone(),
@@ -532,7 +525,7 @@ macro_rules! print_flush {
 fn run_toplevel() {
     loop {
         println!();
-        print_flush!("# ");
+        print_flush!("ZCaml# ");
 
         // Read input from stdin
         let mut input = String::new();
@@ -551,7 +544,11 @@ fn run_toplevel() {
             Lexer::new(input.as_str()).collect::<Vec<Token>>()
         );
 
-        Parser::new(input).parse().unwrap().print_tree(0);
+        println!("Tree:");
+        match Parser::new(input).parse() {
+            Ok(ast) => ast.print_tree(0),
+            Err(err) => println!("{}", err),
+        }
     }
 }
 
