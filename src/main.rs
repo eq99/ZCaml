@@ -339,7 +339,7 @@ impl Parser {
 
     /// Returns the precedence of the current `Token`, or 0 if it is not recognized as a binary operator.
     fn get_tok_precedence(&self) -> i32 {
-        if let Ok(Token::Op(name, preced)) = self.current() {
+        if let Ok(Token::Op(_, preced)) = self.current() {
             preced
         } else {
             -1
@@ -348,13 +348,8 @@ impl Parser {
 
     /// Parses any expression.
     fn parse_expr(&mut self) -> Result<ExprAST, &'static str> {
-
-        let mut left = self.parse_primary()?;
-
-        match self.parse_unary_expr() {
-            Ok(left) => self.parse_binary_expr(0, left),
-            err => err,
-        }
+        let left = self.parse_primary()?;
+        self.parse_op_rhs(0, left)
     }
 
     /// Parses a primary expression (an identifier, a number or a parenthesized expression).
@@ -368,31 +363,32 @@ impl Parser {
     }
 
     /// Parses a binary expression, given its left-hand expression.
-    fn parse_binary_expr(&mut self, prec: i32, mut left: Expr) -> Result<Expr, &'static str> {
+    fn parse_op_rhs(&mut self, left_prec: i32, mut left: ExprAST) -> Result<ExprAST, &'static str> {
         loop {
             let curr_prec = self.get_tok_precedence();
 
-            if curr_prec < prec || self.at_end() {
+            if curr_prec < left_prec || self.at_end() {
                 return Ok(left);
             }
 
-            let op = match self.curr() {
-                Token::Op(op, pred) => op,
+            let op_name = match self.curr() {
+                Token::Op(op, _) => op,
                 _ => return Err("Invalid operator."),
             };
 
+            // eat op
             self.advance()?;
 
-            let mut right = self.parse_unary_expr()?;
+            let mut right = self.parse_primary()?;
 
             let next_prec = self.get_tok_precedence();
 
             if curr_prec < next_prec {
-                right = self.parse_binary_expr(curr_prec + 1, right)?;
+                right = self.parse_op_rhs(curr_prec + 1, right)?;
             }
 
-            left = Expr::Binary {
-                op: op,
+            left = ExprAST::Binary {
+                op: op_name,
                 left: Box::new(left),
                 right: Box::new(right),
             };
@@ -404,6 +400,7 @@ impl Parser {
         // Simply convert Token::Number to Expr::Number
         match self.curr() {
             Token::Integer(integer) => {
+                // eat integer
                 self.advance();
                 Ok(ExprAST::Integer { value: integer })
             }
@@ -414,19 +411,21 @@ impl Parser {
     /// Parses an expression enclosed in parenthesis.
     fn parse_paren_expr(&mut self) -> Result<ExprAST, &'static str> {
         match self.current()? {
-            LParen => (),
+            Token::LParen => (),
             _ => return Err("Expected '(' character at start of parenthesized expression."),
         }
 
+        // eat '('
         self.advance()?;
 
         let expr = self.parse_expr()?;
 
         match self.current()? {
-            RParen => (),
+            Token::RParen => (),
             _ => return Err("Expected ')' character at end of parenthesized expression."),
         }
 
+        // eat ')'
         self.advance();
 
         Ok(expr)
@@ -486,9 +485,11 @@ impl Parser {
             }),
         }
     }
-
-    
 }
+
+//===----------------------------------------------------------------------===//
+// Code Generation
+//===----------------------------------------------------------------------===//
 
 macro_rules! print_flush {
     ( $( $x:expr ),* ) => {
