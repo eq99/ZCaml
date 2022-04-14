@@ -1,8 +1,15 @@
+use lazy_static::lazy_static;
+use std::fmt::{self, Display, Formatter};
 use std::io;
 use std::io::prelude::*;
 use std::iter::Peekable;
 use std::ops::DerefMut;
 use std::str::Chars;
+use std::sync::Mutex;
+
+lazy_static! {
+    static ref INDENT: Mutex<String> = Mutex::new(String::from(""));
+}
 
 #[derive(Debug, Clone)]
 pub enum Token {
@@ -266,6 +273,30 @@ pub enum ExprAST {
     },
 }
 
+impl ExprAST {
+    pub fn print_tree(&self, level: usize) {
+        let indent = "   ".repeat(level);
+
+        match self {
+            ExprAST::Integer { value } => println!("{}{}", indent, value),
+            ExprAST::Bool { value } => println!("{}{}", indent, value),
+            ExprAST::LowerCaseIdent { name } => println!("{}{}", indent, name),
+            ExprAST::Unit => println!("{}Unit", indent),
+            ExprAST::Binary { left, op, right } => {
+                println!("{}{}", indent, op);
+                left.print_tree(level + 1);
+                right.print_tree(level + 1);
+            }
+            ExprAST::Call { fn_name, args } => {
+                println!("{}Call: {}", indent, fn_name);
+                for arg in args {
+                    arg.print_tree(level + 1);
+                }
+            }
+        }
+    }
+}
+
 /// Represents the `Expr` parser.
 pub struct Parser {
     tokens: Vec<Token>,
@@ -282,18 +313,21 @@ impl Parser {
         let mut lexer = Lexer::new(input.as_str());
         let tokens = lexer.by_ref().collect();
 
-        Parser { pos: 0, tokens }
+        Parser { tokens, pos: 0 }
     }
 
     /// Parses the content of the parser.
-    pub fn parse(&mut self) -> Result<(), &'static str> {
+    pub fn parse(&mut self) -> Result<ExprAST, &'static str> {
         let result = self.parse_expr();
         match result {
             Ok(result) => {
                 if !self.at_end() {
-                    Err("Unexpected token after parsed expression.")
+                    match self.current()? {
+                        Token::EOF => Ok(result),
+                        _ => Err("Unexpected token after parsed expression."),
+                    }
                 } else {
-                    Ok(())
+                    Ok(result)
                 }
             }
 
@@ -487,10 +521,6 @@ impl Parser {
     }
 }
 
-//===----------------------------------------------------------------------===//
-// Code Generation
-//===----------------------------------------------------------------------===//
-
 macro_rules! print_flush {
     ( $( $x:expr ),* ) => {
         print!( $($x, )* );
@@ -520,6 +550,8 @@ fn run_toplevel() {
             "Tokens: \n{:?}\n",
             Lexer::new(input.as_str()).collect::<Vec<Token>>()
         );
+
+        Parser::new(input).parse().unwrap().print_tree(0);
     }
 }
 
