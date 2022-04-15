@@ -53,6 +53,7 @@ pub type LexResult = Result<Token, LexError>;
 pub struct Lexer<'a> {
     input: &'a str,
     chars: Box<Peekable<Chars<'a>>>,
+    nesting_level: usize,
     pos: usize,
 }
 
@@ -62,6 +63,7 @@ impl<'a> Lexer<'a> {
         Lexer {
             input,
             chars: Box::new(input.chars().peekable()),
+            nesting_level: 0,
             pos: 0,
         }
     }
@@ -75,35 +77,80 @@ impl<'a> Lexer<'a> {
 
         // Skip whitespaces
         loop {
-            // Note: the following lines are in their own scope to
-            // limit how long 'chars' is borrowed, and in order to allow
-            // it to be borrowed again in the loop by 'chars.next()'.
-            {
-                let ch = chars.peek();
-
-                if ch.is_none() {
+            match chars.peek() {
+                Some(ch) => {
+                    if !ch.is_whitespace() {
+                        break;
+                    }
+                }
+                None => {
                     self.pos = pos;
-
                     return Ok(Token::EOF);
                 }
-
-                if !ch.unwrap().is_whitespace() {
-                    break;
-                }
             }
-
             chars.next();
             pos += 1;
         }
 
         let start = pos;
-        let next = chars.next();
+        let mut next = chars.next();
 
         if next.is_none() {
             return Ok(Token::EOF);
         }
 
         pos += 1;
+
+        // ingore comment: (* xxx  *)
+        match next.unwrap() {
+            '(' => {
+                if chars.peek() == Some(&'*') {
+                    chars.next();
+                    next = chars.next();
+                    pos += 2;
+                    self.nesting_level += 1;
+                    while self.nesting_level > 0 {
+                        match next {
+                            Some(ch) => {
+                                if ch == '*' {
+                                    if chars.peek() == Some(&')') {
+                                        chars.next();
+                                        next = chars.next();
+                                        pos += 2;
+                                        self.nesting_level -= 1;
+                                    } else {
+                                        // eat *
+                                        next = chars.next();
+                                        pos += 1;
+                                    }
+                                } else if ch == '(' {
+                                    if chars.peek() == Some(&'*') {
+                                        chars.next();
+                                        next = chars.next();
+                                        pos += 2;
+                                        self.nesting_level += 1;
+                                    } else {
+                                        // eat (
+                                        next = chars.next();
+                                        pos += 1;
+                                    }
+                                } else {
+                                    // eat any char
+                                    next = chars.next();
+                                    pos += 1;
+                                }
+                            }
+                            None => {
+                                return Err(LexError::with_index("Expect *)", pos));
+                            }
+                        }
+                    }
+                    self.pos = pos;
+                    return self.lex();
+                }
+            }
+            _ => {}
+        }
 
         // Actually get the next token.
         let result = match next.unwrap() {
@@ -367,6 +414,7 @@ impl ExprAST {
 pub enum ModuleAST {
     Defs(Vec<DefAST>),
     Expr(ExprAST),
+    Blank,
 }
 
 impl ModuleAST {
@@ -380,6 +428,7 @@ impl ModuleAST {
             ModuleAST::Expr(expr) => {
                 expr.print_tree(0);
             }
+            ModuleAST::Blank => {}
         }
     }
 }
@@ -450,6 +499,11 @@ impl Parser {
 
     /// module ::= definition | expr
     pub fn parse(&mut self) -> Result<ModuleAST, &'static str> {
+        // blank or only comment
+        if self.at_end() {
+            return Ok(ModuleAST::Blank);
+        }
+
         let result = match self.current()? {
             Token::Let => ModuleAST::Defs(self.parse_defs()?),
             _ => ModuleAST::Expr(self.parse_expr()?),
