@@ -2,7 +2,7 @@
 (* very simple ocaml language      *)
 
 implementation ::= [ module-items ]
-module-items ::= {;;} ( definition | expr ) { {;;} ( definition | expr ) }{ ;; }
+module ::= definition | expr
 
 definition	::=	'let' ['rec'] let-binding { 'and' let-binding }
 

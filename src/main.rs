@@ -403,26 +403,6 @@ impl Parser {
         Parser { tokens, pos: 0 }
     }
 
-    /// Parses the content of the parser.
-    pub fn parse(&mut self) -> Result<ModuleAST, &'static str> {
-        let result = match self.current()? {
-            Token::Let => ModuleAST::Defs(self.parse_defs()?),
-            _ => ModuleAST::Expr(self.parse_expr()?),
-        };
-
-        if !self.at_end() {
-            match self.current()? {
-                Token::EOF => Ok(result),
-                _ => {
-                    println!("Unexpected token: {:?}", self.current());
-                    Err("Unexpected token after parsed expression.")
-                }
-            }
-        } else {
-            Ok(result)
-        }
-    }
-
     /// Returns the current `Token`, without performing safety checks beforehand.
     fn curr(&self) -> Token {
         self.tokens[self.pos].clone()
@@ -465,6 +445,26 @@ impl Parser {
             preced
         } else {
             -1
+        }
+    }
+
+    /// module ::= definition | expr
+    pub fn parse(&mut self) -> Result<ModuleAST, &'static str> {
+        let result = match self.current()? {
+            Token::Let => ModuleAST::Defs(self.parse_defs()?),
+            _ => ModuleAST::Expr(self.parse_expr()?),
+        };
+
+        if !self.at_end() {
+            match self.current()? {
+                Token::EOF => Ok(result),
+                _ => {
+                    println!("Unexpected token: {:?}", self.current());
+                    Err("Unexpected token after parsed expression.")
+                }
+            }
+        } else {
+            Ok(result)
         }
     }
 
@@ -548,7 +548,7 @@ impl Parser {
         }
     }
 
-    /// Parses a integer .
+    /// Parses a integer
     fn parse_integer_expr(&mut self) -> Result<ExprAST, &'static str> {
         // Simply convert Token::Number to Expr::Number
         match self.curr() {
@@ -584,7 +584,9 @@ impl Parser {
         Ok(expr)
     }
 
-    /// Parses an expression that starts with an identifier (either a variable or a function call).
+    /// Parses a single identifier or function call
+    /// expr ::= ident_name args*
+    /// args can be: parenexpr, ident, integer, bool
     fn parse_ident_expr(&mut self) -> Result<ExprAST, &'static str> {
         let ident_name = match self.curr() {
             Token::LowercaseIdent(id) => id,
@@ -596,8 +598,6 @@ impl Parser {
             return Ok(ExprAST::LowerCaseIdent { name: ident_name });
         }
 
-        // expr ::= ident_name args+
-        // args can be: parenexpr, ident, integer, bool
         let mut args = vec![];
         loop {
             match self.curr() {
@@ -692,13 +692,11 @@ impl Parser {
             }
 
             match self.curr() {
-                Token::And => {
-                    // eat 'and'
-                    self.advance()?;
-                    defs.push(self.parse_binding(is_rec)?);
-                }
+                Token::And => {}
                 _ => break,
             }
+            // eat 'and'
+            self.advance().expect("parse defs: eat 'and'");
         }
         Ok(defs)
     }
