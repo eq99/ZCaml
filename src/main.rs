@@ -477,12 +477,14 @@ impl Parser {
     /// Parses a primary expression (an identifier, a number or a parenthesized expression).
     /// primary ::= identexpr
     ///         ::= numberexpr
+    ///         ::= boolexpr
     ///         ::= parenexpr
     ///         ::= 'let' [ 'rec' ] let-binding { 'and' let-binding } 'in' expr   
     fn parse_primary(&mut self) -> Result<ExprAST, &'static str> {
         match self.curr() {
             Token::LowercaseIdent(_) => self.parse_ident_expr(),
             Token::Integer(_) => self.parse_integer_expr(),
+            Token::Bool(_) => self.parse_bool_expr(),
             Token::LParen => self.parse_paren_expr(),
             Token::Let => self.parse_let_expr(),
             _ => Err("Unknown primary expression."),
@@ -558,6 +560,19 @@ impl Parser {
                 Ok(ExprAST::Integer { value: integer })
             }
             _ => Err("Expected integer."),
+        }
+    }
+
+    /// parses a bool
+    fn parse_bool_expr(&mut self) -> Result<ExprAST, &'static str> {
+        // Simply convert Token::Bool to Expr::Bool
+        match self.curr() {
+            Token::Bool(val) => {
+                // eat bool
+                let _ = self.advance();
+                Ok(ExprAST::Bool { value: val })
+            }
+            _ => Err("Expected bool."),
         }
     }
 
