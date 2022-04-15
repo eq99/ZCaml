@@ -12,7 +12,7 @@ expr ::= constant                                  # ConstantExpr
 | expr { argument }+                               # CallExpr
 | expr infix-op expr                               # BinaryExpr
 | 'if' expr 'then' expr [ 'else' expr ]            # CondExpr
-# | 'let' [ 'rec' ] let-binding { 'and' let-binding } 'in' expr                   # LetBindingExpr
+| 'let' [ 'rec' ] let-binding { 'and' let-binding } 'in' expr                   # LetBindingExpr
 | lowercase-ident                                  # ObjectExpr
 (*                     end grammar                 *)
 
@@ -26,6 +26,7 @@ unary ::= primary
 primary ::= identexpr  # CallExpr,  ObjectExpr
 | numberexpr  # ConstantExpr
 | parenexpr # '(' expr ')'   
+| 'let' [ 'rec' ] let-binding { 'and' let-binding } 'in' expr                   # LetBindingExpr
 
 identexpr ::= ident
 | ident '(' expr* ')'
