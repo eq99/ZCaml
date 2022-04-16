@@ -33,6 +33,9 @@ cargo --version
 cargo run
 ```
 
+![image](https://user-images.githubusercontent.com/41274826/163586571-5ccf5f1c-575c-462c-b259-92f99de13c2d.png)
+
+
 # 运行测试
 
 ```shell
