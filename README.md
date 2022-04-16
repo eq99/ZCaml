@@ -12,9 +12,22 @@ sudo apt update
 sudo apt install opam -y
 ```
 
+# Install Rust
+
+Install Rust for WSL: https://www.rust-lang.org/tools/install
+
+```shell
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+
+# 验证
+cargo --version
+
+```
+
+
 # 运行解释器
 
-注意：目前解释器只支持单行代码解析，请不要使用换行的代码，可以复制 `reference` 中的例子。
+温馨提示：目前解释器只支持单行代码，请不要使用换行格式的代码，可以复制 `tests` 文件夹下的测试哦。
 
 ```shell
 cargo run
@@ -26,7 +39,11 @@ cargo run
 cargo test
 ```
 
-支持的语法：
+# 语法参考
+
+我自己写的 OCaml 叫ZCaml, 语法请参考 `reference` 文件夹下的 `ZCaml.bnf` 文件。
+
+目前支持的语法：
 
 - 整数：`1`, `1_000`
 - 布尔值：`true`, `false`
@@ -37,10 +54,11 @@ cargo test
 - Let 表达式：`let x = 1 in x + 1`
 - 函数调用：`add 2 (-1)`
 
-打算支持：
-- 数据结构：链表，数组，记录
+即将支持的语法：
 - if 语句
 - for 语句
+- 链表，数组
+- 类型
 - 字符串
 - 浮点数
-- 类型
+
