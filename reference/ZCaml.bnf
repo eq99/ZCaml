@@ -1,55 +1,44 @@
-(*             v1                  *)
-(* very simple ocaml language      *)
+(*             ZCaml                  *)
+(***   OCaml language  made easy    ***)
 
-implementation ::= [ module-items ]
-module ::= definition | expr
 
-definition	::=	'let' ['rec'] let-binding { 'and' let-binding }
+(*********************** ZCaml grammar *******************)
+(************************* 改良版语法 *********************)
+module ::= defs | expr | blank
 
-(*                     raw grammar                 *)
-expr ::= constant                                  # ConstantExpr
-| '(' expr ')'                                     # ParenExpr
-| expr { argument }+                               # CallExpr
-| expr infix-op expr                               # BinaryExpr
-| 'if' expr 'then' expr [ 'else' expr ]            # CondExpr
-| 'let' [ 'rec' ] let-binding { 'and' let-binding } 'in' expr                   # LetBindingExpr
-| lowercase-ident                                  # ObjectExpr
-(*                     end grammar                 *)
+defs ::= 'let' [ 'rec' ] let-binding { 'and' let-binding }
 
-# rewrite rules
+let-binding ::= lowercase-ident lowercase-ident* '=' expr # function definition or variable definition
+
 expr ::= unary binoprhs
-binoprhs ::= ('+' unary)*
+binoprhs ::= (op unary)*
 
 unary ::= primary
-| '-' primary
+| ('-'|'+') primary
 
-primary ::= identexpr  # CallExpr,  ObjectExpr
-| numberexpr  # ConstantExpr
-| parenexpr # '(' expr ')'   
-| 'let' [ 'rec' ] let-binding { 'and' let-binding } 'in' expr                   # LetBindingExpr
+primary ::= identexpr
+| integerexpr
+| boolexpr
+| parenexpr 
+| letexpr
+| 'if' expr 'then' expr [ 'else' expr ] 
 
-identexpr ::= ident
-| ident '(' expr* ')'
+identexpr ::= ident_name args*  # function call
+
+args ::= parenexpr
+| lowercaseident
+| integerexpr
+| boolexpr
 
 parenexpr ::= '(' expr ')'
-# end rewrite
 
+integerexpr ::= integer-literal
+boolexpr ::= bool-literal
 
+letexpr ::= defs 'in' expr   
 
-eof ::= ';;' | EOF                                 # tok_eof
-
-constant ::= integer-literal                       # tok_int
-| 'false'                                          # tok_false
-| 'true'                                           # tok_true
-| '()'                                             # tok_unit
-
-argument ::= expr                                  # Argument
-
-integer-literal ::= [ '-' ]( digit ){ digit | '_' }
-
-digit ::= '0-9'
-
-infix-op ::= 
+(*********************** 以下主要用于词法 *********************)
+op ::= 
 | '+'                                               # AddOp
 | '-'                                               # SubOp
 | '*'                                               # MulOp
@@ -60,6 +49,29 @@ infix-op ::=
 | '<='                                              # LeOp
 | '>='                                              # GeOp
 | '<>'                                              # NeOp
+| 'mod'                                             # ModOp
+| '&&'                                              # AndOp
+| '||'                                              # OrOp
+
+eof ::= ';;' | EOF
+integer-literal ::= [ '-' ]( digit ){ digit | '_' }
+digit ::= '0-9'
+lowercase-ident ::= ( 'a-z' | '_' ){ letter | digit | '_' }
+capitalized-ident ::= ( 'A-Z' | '_' ){ letter | digit | '_' }
+letter  ::=	'A-Z' | 'a-z'
+(******************************* end grammar ***********************************)
+
+
+
+(*********************** OCaml grammar *******************)
+(************************ 没人看的语法 ********************)
+expr ::= constant                                                   # ConstantExpr
+| '(' expr ')'                                                      # ParenExpr
+| expr { argument }+                                                # CallExpr
+| expr infix-op expr                                                # BinaryExpr
+| 'if' expr 'then' expr [ 'else' expr ]                             # CondExpr
+| 'let' [ 'rec' ] let-binding { 'and' let-binding } 'in' expr       # LetBindingExpr
+| lowercase-ident                                                   # ObjectExpr
 
 let-binding ::= pattern '=' expr                   # LetPatternBinding
 | value-name { parameter } '=' expr                # LetFunctionBinding 
@@ -80,3 +92,4 @@ lowercase-ident ::= ( 'a-z' | '_' ){ letter | digit | '_' }
 letter  ::=	'A-Z' | 'a-z'
 
 object-expr ::= lowercase-ident                    # ObjectExpr
+(******************************* end grammar ***********************************)

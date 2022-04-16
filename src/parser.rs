@@ -223,7 +223,7 @@ impl Parser {
 
     /// Parses a primary expression (an identifier, a number or a parenthesized expression).
     /// primary ::= identexpr
-    ///         ::= numberexpr
+    ///         ::= integerexpr
     ///         ::= boolexpr
     ///         ::= parenexpr
     ///         ::= 'let' [ 'rec' ] let-binding { 'and' let-binding } 'in' expr   
@@ -347,8 +347,11 @@ impl Parser {
     }
 
     /// Parses a single identifier or function call
-    /// expr ::= ident_name args*
-    /// args can be: parenexpr, ident, integer, bool
+    /// idnetexpr ::= ident_name args*
+    /// args ::= parenexpr
+    ///      ::= lowercaseident
+    ///      ::= integerexpr
+    ///      ::= boolexpr
     fn parse_ident_expr(&mut self) -> Result<ExprAST, &'static str> {
         let ident_name = match self.curr() {
             Token::LowercaseIdent(id) => id,
@@ -407,7 +410,7 @@ impl Parser {
         }
     }
 
-    /// Parses a let expression.
+    /// letexpr ::= defs 'in' expr
     fn parse_let_expr(&mut self) -> Result<ExprAST, &'static str> {
         let defs = self.parse_defs()?;
         match self.current()? {
@@ -424,7 +427,7 @@ impl Parser {
         }
     }
 
-    /// definition	::=	'let' ['rec'] let-binding { 'and' let-binding }
+    /// defs ::= 'let' ['rec'] let-binding { 'and' let-binding }
     fn parse_defs(&mut self) -> Result<Vec<DefAST>, &'static str> {
         match self.curr() {
             Token::Let => (),
@@ -464,7 +467,8 @@ impl Parser {
     }
 
     /// parse let bindings
-    /// let-binding ::= ident {ident} '=' expr
+    /// let binding defines a variable or a function
+    /// let-binding ::= ident ident* '=' expr
     pub fn parse_binding(&mut self, is_rec: bool) -> Result<DefAST, &'static str> {
         match self.curr() {
             Token::LowercaseIdent(name) => {
