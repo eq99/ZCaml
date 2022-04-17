@@ -21,7 +21,7 @@ primary ::= identexpr
 | boolexpr
 | parenexpr 
 | letexpr
-| 'if' expr 'then' expr [ 'else' expr ] 
+| branchexpr
 
 identexpr ::= ident_name args*  # function call
 
@@ -35,7 +35,9 @@ parenexpr ::= '(' expr ')'
 integerexpr ::= integer-literal
 boolexpr ::= bool-literal
 
-letexpr ::= defs 'in' expr   
+letexpr ::= defs 'in' expr
+
+branchexpr ::= 'if' expr 'then' expr 'else' expr
 
 (*********************** 以下主要用于词法 *********************)
 op ::= 
@@ -87,9 +89,7 @@ pattern ::= value-name                             # ValueNamePattern
 
 
 value-name ::= lowercase-ident                     # LowercaseIdent
-
 lowercase-ident ::= ( 'a-z' | '_' ){ letter | digit | '_' }
 letter  ::=	'A-Z' | 'a-z'
-
 object-expr ::= lowercase-ident                    # ObjectExpr
 (******************************* end grammar ***********************************)

@@ -1,6 +1,28 @@
 #![allow(dead_code)]
 use crate::lexer::{Lexer, Token};
 
+pub enum ModuleAST {
+    Defs(Vec<DefAST>),
+    Expr(ExprAST),
+    Blank,
+}
+
+impl ModuleAST {
+    pub fn print_tree(&self) {
+        match self {
+            ModuleAST::Defs(defs) => {
+                for def in defs {
+                    def.print_tree(0);
+                }
+            }
+            ModuleAST::Expr(expr) => {
+                expr.print_tree(0);
+            }
+            ModuleAST::Blank => {}
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct DefAST {
     pub name: String,
@@ -60,6 +82,12 @@ pub enum ExprAST {
         expr: Box<ExprAST>,
     },
 
+    Branch {
+        condexpr: Box<ExprAST>,
+        thenexpr: Box<ExprAST>,
+        elseexpr: Box<ExprAST>,
+    },
+
     Call {
         fn_name: String,
         args: Vec<ExprAST>,
@@ -94,34 +122,24 @@ impl ExprAST {
                 println!("{}In:", indent);
                 expr.print_tree(level + 1);
             }
+            ExprAST::Branch {
+                condexpr,
+                thenexpr,
+                elseexpr,
+            } => {
+                println!("{}Cond:", indent);
+                condexpr.print_tree(level + 1);
+                println!("{}Then:", indent);
+                thenexpr.print_tree(level + 1);
+                println!("{}Else:", indent);
+                elseexpr.print_tree(level + 1);
+            }
             ExprAST::Call { fn_name, args } => {
                 println!("{}Call: {}", indent, fn_name);
                 for arg in args {
                     arg.print_tree(level + 1);
                 }
             }
-        }
-    }
-}
-
-pub enum ModuleAST {
-    Defs(Vec<DefAST>),
-    Expr(ExprAST),
-    Blank,
-}
-
-impl ModuleAST {
-    pub fn print_tree(&self) {
-        match self {
-            ModuleAST::Defs(defs) => {
-                for def in defs {
-                    def.print_tree(0);
-                }
-            }
-            ModuleAST::Expr(expr) => {
-                expr.print_tree(0);
-            }
-            ModuleAST::Blank => {}
         }
     }
 }
@@ -216,31 +234,14 @@ impl Parser {
     }
 
     /// expr ::= unary binoprhs
-    fn parse_expr(&mut self) -> Result<ExprAST, &'static str> {
+    pub fn parse_expr(&mut self) -> Result<ExprAST, &'static str> {
         let left = self.parse_unary()?;
         self.parse_op_rhs(0, left)
     }
 
-    /// Parses a primary expression (an identifier, a number or a parenthesized expression).
-    /// primary ::= identexpr
-    ///         ::= integerexpr
-    ///         ::= boolexpr
-    ///         ::= parenexpr
-    ///         ::= 'let' [ 'rec' ] let-binding { 'and' let-binding } 'in' expr   
-    fn parse_primary(&mut self) -> Result<ExprAST, &'static str> {
-        match self.curr() {
-            Token::LowercaseIdent(_) => self.parse_ident_expr(),
-            Token::Integer(_) => self.parse_integer_expr(),
-            Token::Bool(_) => self.parse_bool_expr(),
-            Token::LParen => self.parse_paren_expr(),
-            Token::Let => self.parse_let_expr(),
-            _ => Err("Unknown primary expression."),
-        }
-    }
-
-    // unary ::= primary
-    //       ::= ('-' | '+') primary
-    fn parse_unary(&mut self) -> Result<ExprAST, &'static str> {
+    /// unary ::= primary
+    ///       ::= ('-' | '+') primary
+    pub fn parse_unary(&mut self) -> Result<ExprAST, &'static str> {
         let op_name = match self.current()? {
             Token::Op(op_name, _) => {
                 // eat operator
@@ -264,8 +265,30 @@ impl Parser {
         })
     }
 
+    /// Parses a primary expression (an identifier, a number or a parenthesized expression).
+    /// primary ::= identexpr
+    ///         ::= integerexpr
+    ///         ::= boolexpr
+    ///         ::= parenexpr
+    ///         ::= 'let' [ 'rec' ] let-binding { 'and' let-binding } 'in' expr   
+    pub fn parse_primary(&mut self) -> Result<ExprAST, &'static str> {
+        match self.curr() {
+            Token::LowercaseIdent(_) => self.parse_ident_expr(),
+            Token::Integer(_) => self.parse_integer_expr(),
+            Token::Bool(_) => self.parse_bool_expr(),
+            Token::LParen => self.parse_paren_expr(),
+            Token::Let => self.parse_let_expr(),
+            Token::If => self.parse_branch_expr(),
+            _ => Err("Unknown primary expression."),
+        }
+    }
+
     /// binoprhs ::= (op unary)*
-    fn parse_op_rhs(&mut self, left_prec: i32, mut left: ExprAST) -> Result<ExprAST, &'static str> {
+    pub fn parse_op_rhs(
+        &mut self,
+        left_prec: i32,
+        mut left: ExprAST,
+    ) -> Result<ExprAST, &'static str> {
         loop {
             let curr_prec = self.get_tok_precedence();
 
@@ -298,7 +321,7 @@ impl Parser {
     }
 
     /// Parses a integer
-    fn parse_integer_expr(&mut self) -> Result<ExprAST, &'static str> {
+    pub fn parse_integer_expr(&mut self) -> Result<ExprAST, &'static str> {
         // Simply convert Token::Number to Expr::Number
         match self.curr() {
             Token::Integer(integer) => {
@@ -311,7 +334,7 @@ impl Parser {
     }
 
     /// parses a bool
-    fn parse_bool_expr(&mut self) -> Result<ExprAST, &'static str> {
+    pub fn parse_bool_expr(&mut self) -> Result<ExprAST, &'static str> {
         // Simply convert Token::Bool to Expr::Bool
         match self.curr() {
             Token::Bool(val) => {
@@ -324,7 +347,7 @@ impl Parser {
     }
 
     /// parenexpr ::= '(' expr ')'
-    fn parse_paren_expr(&mut self) -> Result<ExprAST, &'static str> {
+    pub fn parse_paren_expr(&mut self) -> Result<ExprAST, &'static str> {
         match self.current()? {
             Token::LParen => {
                 // eat '('
@@ -352,7 +375,7 @@ impl Parser {
     ///      ::= lowercaseident
     ///      ::= integerexpr
     ///      ::= boolexpr
-    fn parse_ident_expr(&mut self) -> Result<ExprAST, &'static str> {
+    pub fn parse_ident_expr(&mut self) -> Result<ExprAST, &'static str> {
         let ident_name = match self.curr() {
             Token::LowercaseIdent(id) => id,
             _ => return Err("bad identifier."),
@@ -411,7 +434,7 @@ impl Parser {
     }
 
     /// letexpr ::= defs 'in' expr
-    fn parse_let_expr(&mut self) -> Result<ExprAST, &'static str> {
+    pub fn parse_let_expr(&mut self) -> Result<ExprAST, &'static str> {
         let defs = self.parse_defs()?;
         match self.current()? {
             Token::In => {
@@ -427,8 +450,47 @@ impl Parser {
         }
     }
 
+    /// branchexpr ::= 'if' expr 'then' expr 'else' expr
+    pub fn parse_branch_expr(&mut self) -> Result<ExprAST, &'static str> {
+        match self.curr() {
+            Token::If => {
+                // eat 'if'
+                self.advance().expect("parse branch expr: eat if");
+            }
+            _ => return Err("Expected 'if' after if-branch."),
+        }
+
+        let condexpr = self.parse_expr()?;
+
+        match self.current().expect("Must have then expr in branch expr") {
+            Token::Then => {
+                // eat 'then'
+                self.advance().expect("parse branch expr: eat then");
+            }
+            _ => return Err("Expected 'then' after if-branch."),
+        }
+
+        let thenexpr = self.parse_expr()?;
+
+        match self.current().expect("Must have else expr in expr") {
+            Token::Else => {
+                // eat 'else'
+                self.advance().expect("parse branch expr: eat else");
+            }
+            _ => return Err("Expected 'else' after if-branch."),
+        }
+
+        let elseexpr = self.parse_expr()?;
+
+        Ok(ExprAST::Branch {
+            condexpr: Box::new(condexpr),
+            thenexpr: Box::new(thenexpr),
+            elseexpr: Box::new(elseexpr),
+        })
+    }
+
     /// defs ::= 'let' ['rec'] let-binding { 'and' let-binding }
-    fn parse_defs(&mut self) -> Result<Vec<DefAST>, &'static str> {
+    pub fn parse_defs(&mut self) -> Result<Vec<DefAST>, &'static str> {
         match self.curr() {
             Token::Let => (),
             _ => return Err("Expected 'let' keyword."),
@@ -573,6 +635,13 @@ and odd n =
       d * d > n || (n mod d <> 0 && is_not_divisor (d + 1)) in
     n <> 1 && is_not_divisor 2;;"#;
 
+        let mut parser = Parser::new(input.to_string());
+        parser.parse().unwrap();
+    }
+
+    #[test]
+    fn test_branch() {
+        let input = r#"let rec gcd a b = if b = 0 then a else gcd b (a mod b);;"#;
         let mut parser = Parser::new(input.to_string());
         parser.parse().unwrap();
     }
