@@ -60,7 +60,7 @@ cargo test
 - 算术表达式：`1 + 1 * (2 + 3)`
 - 布尔表达式：`true && false || true`
 - 单目运算符：`-1`, `+（1 + 2）`
-- 函数定义：`let rec even n = n = 0 || odd (n - 1) and odd n = n <> 0 && even (n - 1);;`
+- 函数或变量定义：`let rec even n = n = 0 || odd (n - 1) and odd n = n <> 0 && even (n - 1);;`
 - Let 表达式：`let x = 1 in x + 1`
 - 函数调用：`add 2 (-1)`
 - 分支语句: `let rec gcd a b = if b = 0 then a else gcd b (a mod b);;`
