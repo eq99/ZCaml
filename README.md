@@ -1,6 +1,7 @@
 # Compiler Homework
 
 OCamle 语法参考：https://ocaml.org/manual/language.html
+99 Problems (solved) in OCaml: https://ocaml.org/learn/tutorials/99problems.html
 
 # Install OCaml
 
@@ -44,7 +45,7 @@ cargo test
 
 # 语法参考
 
-我自己写的 OCaml 叫ZCaml, 语法请参考 `reference` 文件夹下的 `ZCaml.bnf` 文件。
+我自己写的 OCaml 叫 ZCaml, 语法请参考 `reference` 文件夹下的 `ZCaml.bnf` 文件。
 
 已经支持的语法：
 
@@ -56,12 +57,13 @@ cargo test
 - 函数定义：`let rec even n = n = 0 || odd (n - 1) and odd n = n <> 0 && even (n - 1);;`
 - Let 表达式：`let x = 1 in x + 1`
 - 函数调用：`add 2 (-1)`
+- 分支语句: `let rec gcd a b = if b = 0 then a else gcd b (a mod b);;`
 
 正在开发的语法：
-- if 语句
 - 类型
 - for 语句
 - 链表，数组
 - 字符串
+- for 语句
 - 浮点数
 

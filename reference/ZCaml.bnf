@@ -1,5 +1,5 @@
-(*             ZCaml                  *)
-(***   OCaml language  made easy    ***)
+(*                        ZCaml                          *)
+(************   OCaml language made easy    **************)
 
 
 (*********************** ZCaml grammar *******************)
@@ -23,7 +23,7 @@ primary ::= identexpr
 | letexpr
 | branchexpr
 
-identexpr ::= ident_name args*  # function call
+identexpr ::= ident_name args*  # function call or just a variable
 
 args ::= parenexpr
 | lowercaseident
