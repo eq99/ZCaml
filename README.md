@@ -46,6 +46,9 @@ cargo run
 cargo test
 ```
 
+![image](https://user-images.githubusercontent.com/41274826/163696487-210382d1-de43-404e-8406-e07bd43b2bac.png)
+
+
 # 语法参考
 
 我自己写的 OCaml 叫 ZCaml, 语法请参考 `reference` 文件夹下的 `ZCaml.bnf` 文件。
