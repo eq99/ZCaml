@@ -69,7 +69,7 @@ docker build -t zcaml .
 docker run --rm -it zcaml cargo run
 ```
 
-交互式环境支持单行代码，多行代码会导致输入中断，可以复制 `tests` 文件夹下的用例进行体验哦。
+交互式环境目前只支持单行代码，多行代码会导致输入中断，可以复制 `tests` 文件夹下的用例进行体验哦。
 
 3. 在 dokcer 容器中运行测试
 
