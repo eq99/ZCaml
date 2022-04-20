@@ -2,7 +2,6 @@
 use crate::lexer::{Lexer, Token};
 
 pub enum ModuleAST {
-    Defs(Vec<DefAST>),
     Expr(ExprAST),
     Blank,
 }
@@ -10,11 +9,6 @@ pub enum ModuleAST {
 impl ModuleAST {
     pub fn print_tree(&self) {
         match self {
-            ModuleAST::Defs(defs) => {
-                for def in defs {
-                    def.print_tree(0);
-                }
-            }
             ModuleAST::Expr(expr) => {
                 expr.print_tree(0);
             }
@@ -77,6 +71,8 @@ pub enum ExprAST {
         right: Box<ExprAST>,
     },
 
+    Defs(Vec<DefAST>),
+
     LetBinding {
         defs: Vec<DefAST>,
         expr: Box<ExprAST>,
@@ -113,6 +109,11 @@ impl ExprAST {
             ExprAST::Unary { op, expr } => {
                 print!("{}Unary:({})", indent, op);
                 expr.print_tree(0);
+            }
+            ExprAST::Defs(defs) => {
+                for def in defs {
+                    def.print_tree(level);
+                }
             }
             ExprAST::LetBinding { defs, expr } => {
                 println!("{}LetBindingExpr:", indent);
@@ -215,13 +216,12 @@ impl Parser {
             return Ok(ModuleAST::Blank);
         }
 
-        let result = match self.current()? {
-            Token::Let => ModuleAST::Defs(self.parse_defs()?),
+        let result = match self.curr() {
             _ => ModuleAST::Expr(self.parse_expr()?),
         };
 
         if !self.at_end() {
-            match self.current()? {
+            match self.curr() {
                 Token::EOF => Ok(result),
                 _ => {
                     println!("Unexpected token: {:?}", self.current());
@@ -435,12 +435,17 @@ impl Parser {
 
     /// letexpr ::= defs 'in' expr
     pub fn parse_let_expr(&mut self) -> Result<ExprAST, &'static str> {
-        let defs = self.parse_defs()?;
-        match self.current()? {
+        let defs = self.parse_defs().expect("parse let expr: parse defs");
+
+        if self.at_end() {
+            return Ok(ExprAST::Defs(defs));
+        }
+
+        match self.curr() {
             Token::In => {
                 // eat 'in'
-                self.advance()?;
-                let expr = self.parse_expr()?;
+                self.advance().expect("parse let expr: eat 'in'");
+                let expr = self.parse_expr().expect("parse let expr: parse expr");
                 Ok(ExprAST::LetBinding {
                     defs,
                     expr: Box::new(expr),
@@ -459,7 +464,6 @@ impl Parser {
             }
             _ => return Err("Expected 'if' after if-branch."),
         }
-
         let condexpr = self.parse_expr()?;
 
         match self.current().expect("Must have then expr in branch expr") {
@@ -642,6 +646,13 @@ and odd n =
     #[test]
     fn test_branch() {
         let input = r#"let rec gcd a b = if b = 0 then a else gcd b (a mod b);;"#;
+        let mut parser = Parser::new(input.to_string());
+        parser.parse().unwrap();
+    }
+
+    #[test]
+    fn test_letin() {
+        let input = r#"let x = 1 in x+1;;"#;
         let mut parser = Parser::new(input.to_string());
         parser.parse().unwrap();
     }
