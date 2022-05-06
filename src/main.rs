@@ -31,11 +31,12 @@ fn run_toplevel() {
             continue;
         }
 
-        println!("Tree:");
         let mut symbols = SymbolTable::new();
         match Parser::new(input, &mut symbols).parse() {
             Ok(ast) => {
-                ast.print_tree();
+                let expr_type = ast.check_type(&mut symbols);
+                ast.print_type(&symbols, expr_type);
+                println!("\nSymbol table:");
                 symbols.print();
             }
             Err(err) => println!("{}", err),

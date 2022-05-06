@@ -18,6 +18,10 @@ impl SymbolTable {
             "not".to_string(),
             vec!["bool".to_string(), "bool".to_string()],
         );
+        root_talbe.insert(
+            "abs".to_string(),
+            vec!["int".to_string(), "int".to_string()],
+        );
         SymbolTable {
             tables: vec![root_talbe],
         }
@@ -83,6 +87,36 @@ impl ModuleAST {
             ModuleAST::Blank => {}
         }
     }
+
+    pub fn check_type(&self, symbols: &mut SymbolTable) -> Vec<String> {
+        match self {
+            ModuleAST::Expr(expr) => expr.check_type(symbols, 0, vec![]),
+            ModuleAST::Blank => {
+                vec![]
+            }
+        }
+    }
+
+    pub fn print_type(&self, symbols: &SymbolTable, expr_type: Vec<String>) {
+        match self {
+            ModuleAST::Expr(expr) => match expr {
+                ExprAST::Defs(defs) => {
+                    for def in defs {
+                        let def_type = symbols.lookup(&def.name, symbols.tables.len() - 1);
+                        let val = if def_type.len() > 1 { "<fun>" } else { "?" };
+                        println!("val {} : {} = {}", def.name, def_type.join(" -> "), val);
+                    }
+                }
+                _ => {
+                    if expr_type.len() > 0 {
+                        let val = if expr_type.len() > 1 { "<fun>" } else { "?" };
+                        println!("- : {} = {}", expr_type.join(" -> "), val);
+                    }
+                }
+            },
+            ModuleAST::Blank => {}
+        }
+    }
 }
 
 /// function or variable declaration
@@ -124,13 +158,15 @@ impl DefAST {
 
         // check the returned type of the definition
         let last_def_type = def_type.last().expect("get returned type from def failed");
-        if last_def_type != &body_type[0] && last_def_type.starts_with("'") {
-            symbols.instance_type(&self.name, last_def_type, &body_type[0], scope);
-        } else {
-            panic!(
-                "[Type error] expe def return {:?}, got {:?}",
-                body_type[0], last_def_type
-            );
+        if last_def_type != &body_type[0] {
+            if last_def_type.starts_with("'") {
+                symbols.instance_type(&self.name, last_def_type, &body_type[0], scope);
+            } else {
+                panic!(
+                    "[Type error] expe def return {:?}, got {:?}",
+                    body_type[0], last_def_type
+                );
+            }
         }
 
         symbols.lookup(&self.name, scope)
@@ -291,10 +327,12 @@ impl ExprAST {
                     panic!("[Type error] expected {:?}, got {:?}", type_hint, id_type);
                 } else {
                     for (i, t) in id_type.iter().enumerate() {
-                        if t != &type_hint[i] && t.starts_with("'") {
-                            symbols.instance_type(name, t, &type_hint[i], scope);
-                        } else {
-                            panic!("[Type error] expected {:?}, got {:?}", type_hint, id_type);
+                        if t != &type_hint[i] {
+                            if t.starts_with("'") {
+                                symbols.instance_type(name, t, &type_hint[i], scope);
+                            } else {
+                                panic!("[Type error] expected {:?}, got {:?}", type_hint, id_type);
+                            }
                         }
                     }
                 }
@@ -302,7 +340,8 @@ impl ExprAST {
                 type_hint
             }
             ExprAST::Binary { left, op, right } => {
-                let int_ops = vec!["+", "-", "*", "/", "=", "<>", "<", ">", "<=", ">="];
+                let int_ops = vec!["+", "-", "*", "/", "mod"];
+                let int_bool_ops = vec!["=", "<>", "<", ">", "<=", ">="];
                 let bool_ops = vec!["&&", "||"];
                 let binary_type = if int_ops.contains(&op.as_str()) {
                     let int_type = vec!["int".to_string()];
@@ -310,10 +349,15 @@ impl ExprAST {
                     right.check_type(symbols, scope, int_type.clone());
                     int_type
                 } else if bool_ops.contains(&op.as_str()) {
-                    let bool_type = vec!["int".to_string()];
+                    let bool_type = vec!["bool".to_string()];
                     left.check_type(symbols, scope, bool_type.clone());
                     right.check_type(symbols, scope, bool_type.clone());
                     bool_type
+                } else if int_bool_ops.contains(&op.as_str()) {
+                    let int_type = vec!["int".to_string()];
+                    left.check_type(symbols, scope, int_type.clone());
+                    right.check_type(symbols, scope, int_type.clone());
+                    vec!["bool".to_string()]
                 } else {
                     panic!("[Type error] Unknown op type:  {} ", op);
                 };
@@ -361,10 +405,18 @@ impl ExprAST {
                     condexpr.check_type(symbols, scope, vec!["bool".to_string()]);
                     let then_type = thenexpr.check_type(symbols, scope, vec![]);
                     let else_type = elseexpr.check_type(symbols, scope, vec![]);
-                    if then_type == else_type {
-                        then_type
+                    if then_type != else_type {
+                        if then_type[0].starts_with("'") && !else_type[0].starts_with("'") {
+                            else_type
+                        } else if then_type[0].starts_with("'") && else_type[0].starts_with("'") {
+                            then_type
+                        } else if !then_type[0].starts_with("'") && else_type[0].starts_with("'") {
+                            then_type
+                        } else {
+                            panic!("[Type error] expected {:?}, got {:?}", then_type, else_type);
+                        }
                     } else {
-                        panic!("[Type error] expected {:?}, got {:?}", then_type, else_type);
+                        then_type
                     }
                 } else {
                     condexpr.check_type(symbols, scope, vec!["bool".to_string()]);
@@ -390,9 +442,10 @@ impl ExprAST {
                         panic!("[Type error] Unknown type for arg[{}].", i);
                     }
                     // arg should not be a function
-                    if arg_type[0] != fn_type[i] && fn_type[i].starts_with("'") {
-                    } else {
-                        panic!("[Type error] expected {:?}, got {:?}", fn_type[i], arg_type);
+                    if arg_type[0] != fn_type[i] {
+                        if !fn_type[i].starts_with("'") && !arg_type[0].starts_with("'") {
+                            panic!("[Type error] expected {:?}, got {:?}", fn_type[i], arg_type);
+                        }
                     }
                     i += 1;
                 }
@@ -400,11 +453,28 @@ impl ExprAST {
                 let mut call_type = vec![];
                 while i < fn_type.len() {
                     call_type.push(fn_type[i].clone());
+                    i += 1;
                 }
-                if type_hint.len() == 0 || type_hint == call_type {
+
+                if type_hint.len() == 0 {
                     call_type
                 } else {
-                    panic!("[Type error] expected {:?}, got {:?}", type_hint, call_type);
+                    if type_hint.len() != call_type.len() {
+                        panic!("[Type error] expected {:?}, got {:?}", type_hint, call_type);
+                    } else {
+                        for i in 0..type_hint.len() {
+                            if type_hint[i] != call_type[i] {
+                                if !type_hint[i].starts_with("'") && !call_type[i].starts_with("'")
+                                {
+                                    panic!(
+                                        "[Type error] expected {:?}, got {:?}",
+                                        type_hint, call_type
+                                    );
+                                }
+                            }
+                        }
+                        call_type
+                    }
                 }
             }
         }
