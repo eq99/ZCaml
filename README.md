@@ -83,18 +83,20 @@ docker run --rm -it zcaml cargo test
 
 已经支持的语法：
 
-- 整数：`1`, `1_000`
-- 布尔值：`true`, `false`
-- 算术表达式：`1 + 1 * (2 + 3)`
-- 布尔表达式：`true && false || true`
-- 单目运算符：`-1`, `+（1 + 2）`
-- 函数或变量定义：`let rec even n = n = 0 || odd (n - 1) and odd n = n <> 0 && even (n - 1);;`
-- Let 表达式：`let x = 1 in x + 1`
-- 函数调用：`add 2 (-1)`
+- 整数：`1;;`, `1_000;;`
+- 布尔值：`true;;`, `false;;`
+- 算术表达式：`1 + 1 * (2 + 3);;`
+- 布尔表达式：`true && false || true;;`
+- 单目运算符：`-1;;`, `+（1 + 2;;`
+- 函数或变量定义：`let square x = x * x;;`
+- Let 表达式：`let x = 1 in x + 1;;`
+- 函数调用：`add 2 (-1);;`
 - 分支语句: `let rec gcd a b = if b = 0 then a else gcd b (a mod b);;`
 
-正在开发的语法：
-- 类型
+# 类型
+- 整型：`int`
+- 布尔型：`bool`
+- 函数类型：`int->int`, `int->int->bool`
 
 # 代码解读
 

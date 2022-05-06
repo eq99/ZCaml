@@ -1,7 +1,7 @@
 mod lexer;
 mod parser;
 
-use crate::lexer::*;
+// use crate::lexer::*;
 use crate::parser::*;
 use std::io;
 use std::io::prelude::*;
@@ -31,14 +31,13 @@ fn run_toplevel() {
             continue;
         }
 
-        println!(
-            "Tokens: \n{:?}\n",
-            Lexer::new(input.as_str()).collect::<Vec<Token>>()
-        );
-
         println!("Tree:");
-        match Parser::new(input).parse() {
-            Ok(ast) => ast.print_tree(),
+        let mut symbols = SymbolTable::new();
+        match Parser::new(input, &mut symbols).parse() {
+            Ok(ast) => {
+                ast.print_tree();
+                symbols.print();
+            }
             Err(err) => println!("{}", err),
         }
     }

@@ -1,6 +1,74 @@
 #![allow(dead_code)]
 use crate::lexer::{Lexer, Token};
+use std::collections::HashMap;
 
+/// symbol table
+#[derive(Debug)]
+pub struct SymbolTable {
+    // (name, type)
+    // vec!["bool", "bool"]: bool -> bool
+    tables: Vec<HashMap<String, Vec<String>>>,
+}
+
+impl SymbolTable {
+    /// create a new symbol table
+    pub fn new() -> Self {
+        let mut root_talbe = HashMap::new();
+        root_talbe.insert(
+            "not".to_string(),
+            vec!["bool".to_string(), "bool".to_string()],
+        );
+        SymbolTable {
+            tables: vec![root_talbe],
+        }
+    }
+
+    /// find a symbol's type
+    pub fn lookup(&self, name: &str, scope: usize) -> Vec<String> {
+        for i in (0..scope + 1).rev() {
+            if let Some(ty) = self.tables[i].get(name) {
+                return ty.to_vec();
+            }
+        }
+        vec![]
+    }
+
+    pub fn insert(&mut self, name: String, symbol_type: Vec<String>) {
+        let current_table = self.tables.last_mut().expect("Get current table failed.");
+        current_table.insert(name, symbol_type);
+    }
+
+    pub fn push(&mut self, new_table: HashMap<String, Vec<String>>) {
+        self.tables.push(new_table);
+    }
+
+    pub fn instance_type(
+        &mut self,
+        name: &str,
+        generic_type: &str,
+        instant_type: &str,
+        scope: usize,
+    ) {
+        for i in (0..scope + 1).rev() {
+            if let Some(_) = self.tables[i].get(name) {
+                for (_, val) in self.tables[i].iter_mut() {
+                    for ty in val {
+                        *ty = ty.replace(generic_type, instant_type);
+                    }
+                }
+            }
+        }
+    }
+
+    pub fn print(&self) {
+        for i in (0..self.tables.len()).rev() {
+            println!("table[{}]:\n{:?}", i, self.tables[i]);
+        }
+    }
+}
+
+/// Top AST
+/// may be an expression or blank input
 pub enum ModuleAST {
     Expr(ExprAST),
     Blank,
@@ -17,11 +85,12 @@ impl ModuleAST {
     }
 }
 
+/// function or variable declaration
 #[derive(Debug)]
 pub struct DefAST {
     pub name: String,
     pub is_rec: bool,
-    pub params: Vec<(String, String)>, // (name, type)
+    pub params: Vec<String>,
     pub body: Box<ExprAST>,
 }
 
@@ -37,13 +106,38 @@ impl DefAST {
         println!("{}", head);
         println!("{}Params:", indent_str);
         for param in &self.params {
-            println!("  {}{}:{}", indent_str, param.0, param.1);
+            println!("  {}{}", indent_str, param);
         }
         println!("{}Body:", indent_str);
         self.body.print_tree(level + 1);
     }
+
+    /// check the returned type of the definition
+    /// return the type of the definition
+    pub fn check_type(&self, symbols: &mut SymbolTable, scope: usize) -> Vec<String> {
+        let def_type = symbols.lookup(&self.name, scope);
+        if def_type.len() == 0 {
+            panic!("[Type error] Undefined symbol: {}", self.name);
+        }
+
+        let body_type = self.body.check_type(symbols, scope, vec![]);
+
+        // check the returned type of the definition
+        let last_def_type = def_type.last().expect("get returned type from def failed");
+        if last_def_type != &body_type[0] && last_def_type.starts_with("'") {
+            symbols.instance_type(&self.name, last_def_type, &body_type[0], scope);
+        } else {
+            panic!(
+                "[Type error] expe def return {:?}, got {:?}",
+                body_type[0], last_def_type
+            );
+        }
+
+        symbols.lookup(&self.name, scope)
+    }
 }
 
+/// expressions
 #[derive(Debug)]
 pub enum ExprAST {
     Integer {
@@ -84,6 +178,8 @@ pub enum ExprAST {
         elseexpr: Box<ExprAST>,
     },
 
+    // if args.len()==0: variable eval
+    // else: function call
     Call {
         fn_name: String,
         args: Vec<ExprAST>,
@@ -143,25 +239,200 @@ impl ExprAST {
             }
         }
     }
+
+    /// check type
+    /// return the type of the expression
+    /// supported types:
+    ///   - int
+    ///   - bool
+    ///   - int->int->bool
+    pub fn check_type(
+        &self,
+        symbols: &mut SymbolTable,
+        scope: usize,
+        type_hint: Vec<String>,
+    ) -> Vec<String> {
+        match self {
+            ExprAST::Integer { .. } => {
+                let int_type = vec!["int".to_string()];
+                if type_hint.len() == 0 || type_hint == int_type {
+                    return int_type;
+                } else {
+                    panic!("[Type error] expected int, got {:?}", type_hint);
+                }
+            }
+            ExprAST::Bool { .. } => {
+                let bool_type = vec!["bool".to_string()];
+                if type_hint.len() == 0 || type_hint == bool_type {
+                    return bool_type;
+                } else {
+                    panic!("[Type error] expected bool, got {:?}", type_hint);
+                }
+            }
+            ExprAST::Unit => {
+                let unit_type = vec!["unit".to_string()];
+                if type_hint.len() == 0 || type_hint == unit_type {
+                    return unit_type;
+                } else {
+                    panic!("[Type error] expected unit, got {:?}", type_hint);
+                }
+            }
+            ExprAST::LowerCaseIdent { name } => {
+                let id_type = symbols.lookup(&name, scope);
+                if id_type.len() == 0 {
+                    panic!("[Type error] undefined identifier: {}", name);
+                }
+
+                if type_hint.len() == 0 {
+                    return id_type;
+                }
+
+                if id_type.len() != type_hint.len() {
+                    panic!("[Type error] expected {:?}, got {:?}", type_hint, id_type);
+                } else {
+                    for (i, t) in id_type.iter().enumerate() {
+                        if t != &type_hint[i] && t.starts_with("'") {
+                            symbols.instance_type(name, t, &type_hint[i], scope);
+                        } else {
+                            panic!("[Type error] expected {:?}, got {:?}", type_hint, id_type);
+                        }
+                    }
+                }
+
+                type_hint
+            }
+            ExprAST::Binary { left, op, right } => {
+                let int_ops = vec!["+", "-", "*", "/", "=", "<>", "<", ">", "<=", ">="];
+                let bool_ops = vec!["&&", "||"];
+                let binary_type = if int_ops.contains(&op.as_str()) {
+                    let int_type = vec!["int".to_string()];
+                    left.check_type(symbols, scope, int_type.clone());
+                    right.check_type(symbols, scope, int_type.clone());
+                    int_type
+                } else if bool_ops.contains(&op.as_str()) {
+                    let bool_type = vec!["int".to_string()];
+                    left.check_type(symbols, scope, bool_type.clone());
+                    right.check_type(symbols, scope, bool_type.clone());
+                    bool_type
+                } else {
+                    panic!("[Type error] Unknown op type:  {} ", op);
+                };
+
+                if binary_type == type_hint || type_hint.len() == 0 {
+                    binary_type
+                } else {
+                    panic!(
+                        "[Type error] expected {:?}, got {:?}",
+                        type_hint, binary_type
+                    );
+                }
+            }
+            ExprAST::Unary { op: _, expr } => {
+                let int_type = vec!["int".to_string()];
+                if type_hint.len() != 0 && type_hint != int_type {
+                    panic!("[Type error] expected int, got {:?}", type_hint);
+                }
+                expr.check_type(symbols, scope, int_type.clone());
+                int_type
+            }
+            ExprAST::Defs(defs) => {
+                for def in defs {
+                    def.check_type(symbols, scope + 1);
+                }
+                defs[defs.len() - 1].check_type(symbols, scope + 1)
+            }
+            ExprAST::LetBinding { defs, expr } => {
+                for def in defs {
+                    def.check_type(symbols, scope + 1);
+                }
+                let expr_type = expr.check_type(symbols, scope + 1, type_hint.clone());
+                if type_hint.len() == 0 || type_hint == expr_type {
+                    expr_type
+                } else {
+                    panic!("[Type error] expected {:?}, got {:?}", type_hint, expr_type);
+                }
+            }
+            ExprAST::Branch {
+                condexpr,
+                thenexpr,
+                elseexpr,
+            } => {
+                if type_hint.len() == 0 {
+                    condexpr.check_type(symbols, scope, vec!["bool".to_string()]);
+                    let then_type = thenexpr.check_type(symbols, scope, vec![]);
+                    let else_type = elseexpr.check_type(symbols, scope, vec![]);
+                    if then_type == else_type {
+                        then_type
+                    } else {
+                        panic!("[Type error] expected {:?}, got {:?}", then_type, else_type);
+                    }
+                } else {
+                    condexpr.check_type(symbols, scope, vec!["bool".to_string()]);
+                    thenexpr.check_type(symbols, scope, type_hint.clone());
+                    elseexpr.check_type(symbols, scope, type_hint)
+                }
+            }
+            ExprAST::Call { fn_name, args } => {
+                let fn_type = symbols.lookup(&fn_name, scope);
+                if fn_type.len() == 0 {
+                    panic!("[Type error] undefined identifier: {}", fn_name);
+                }
+
+                let num_args = args.len();
+                if num_args >= fn_type.len() {
+                    panic!("[Type error] too many arguments for function: {}", fn_name);
+                }
+
+                let mut i = 0;
+                while i < num_args {
+                    let arg_type = args[i].check_type(symbols, scope, vec![]);
+                    if arg_type.len() == 0 {
+                        panic!("[Type error] Unknown type for arg[{}].", i);
+                    }
+                    // arg should not be a function
+                    if arg_type[0] != fn_type[i] && fn_type[i].starts_with("'") {
+                    } else {
+                        panic!("[Type error] expected {:?}, got {:?}", fn_type[i], arg_type);
+                    }
+                    i += 1;
+                }
+
+                let mut call_type = vec![];
+                while i < fn_type.len() {
+                    call_type.push(fn_type[i].clone());
+                }
+                if type_hint.len() == 0 || type_hint == call_type {
+                    call_type
+                } else {
+                    panic!("[Type error] expected {:?}, got {:?}", type_hint, call_type);
+                }
+            }
+        }
+    }
 }
 
 /// Represents the `Expr` parser.
-pub struct Parser {
+pub struct Parser<'a> {
     tokens: Vec<Token>,
+    symbols: &'a mut SymbolTable,
     pos: usize,
 }
 
 // I'm ignoring the 'must_use' lint in order to call 'self.advance' without checking
 // the result when an EOF is acceptable.
 // #[allow(unused_must_use)]
-impl Parser {
+impl<'a> Parser<'a> {
     /// Creates a new parser, given an input `str` and a `HashMap` binding
     /// an operator and its precedence in binary expressions.
-    pub fn new(input: String) -> Self {
+    pub fn new(input: String, symbols: &'a mut SymbolTable) -> Self {
         let mut lexer = Lexer::new(input.as_str());
         let tokens = lexer.by_ref().collect();
 
-        Parser { tokens, pos: 0 }
+        Parser {
+            tokens,
+            symbols,
+            pos: 0,
+        }
     }
 
     /// Returns the current `Token`, without performing safety checks beforehand.
@@ -209,7 +480,7 @@ impl Parser {
         }
     }
 
-    /// module ::= definition | expr
+    /// module ::= expr | blank
     pub fn parse(&mut self) -> Result<ModuleAST, &'static str> {
         // blank or only comment
         if self.at_end() {
@@ -217,7 +488,7 @@ impl Parser {
         }
 
         let result = match self.curr() {
-            _ => ModuleAST::Expr(self.parse_expr()?),
+            _ => ModuleAST::Expr(self.parse_expr().expect("parse module expr")),
         };
 
         if !self.at_end() {
@@ -235,14 +506,16 @@ impl Parser {
 
     /// expr ::= unary binoprhs
     pub fn parse_expr(&mut self) -> Result<ExprAST, &'static str> {
-        let left = self.parse_unary()?;
+        let left = self
+            .parse_unary()
+            .expect("parse expr: parse expr unary error");
         self.parse_op_rhs(0, left)
     }
 
     /// unary ::= primary
     ///       ::= ('-' | '+') primary
     pub fn parse_unary(&mut self) -> Result<ExprAST, &'static str> {
-        let op_name = match self.current()? {
+        let op_name = match self.current().expect("Unexpected end of file.") {
             Token::Op(op_name, _) => {
                 // eat operator
                 self.advance().expect("parse unary: expected operator");
@@ -251,7 +524,7 @@ impl Parser {
                 match op_name.as_str() {
                     "+" => String::from("+"),
                     "-" => String::from("-"),
-                    _ => return Err("bad unary operator."),
+                    _ => return Err("unknown unary operator."),
                 }
             }
 
@@ -261,7 +534,10 @@ impl Parser {
 
         Ok(ExprAST::Unary {
             op: op_name,
-            expr: Box::new(self.parse_primary()?),
+            expr: Box::new(
+                self.parse_primary()
+                    .expect("parse unary: parse primary error"),
+            ),
         })
     }
 
@@ -304,12 +580,14 @@ impl Parser {
             // eat operator
             self.advance().expect("parse op rhs: eat operator");
 
-            let mut right = self.parse_unary()?;
+            let mut right = self.parse_unary().expect("parse op rhs: parse unary error");
 
             let next_prec = self.get_tok_precedence();
 
             if curr_prec < next_prec {
-                right = self.parse_op_rhs(curr_prec + 1, right)?;
+                right = self
+                    .parse_op_rhs(curr_prec + 1, right)
+                    .expect("parse op rhs: parse op rhs error");
             }
 
             left = ExprAST::Binary {
@@ -433,7 +711,7 @@ impl Parser {
         }
     }
 
-    /// letexpr ::= defs 'in' expr
+    /// letexpr ::= defs ['in' expr]
     pub fn parse_let_expr(&mut self) -> Result<ExprAST, &'static str> {
         let defs = self.parse_defs().expect("parse let expr: parse defs");
 
@@ -513,6 +791,10 @@ impl Parser {
             _ => false,
         };
 
+        // create a new scope
+        let new_table = HashMap::new();
+        self.symbols.push(new_table);
+
         let mut defs = vec![];
         loop {
             let def = self.parse_binding(is_rec).expect("parse define");
@@ -548,7 +830,7 @@ impl Parser {
                         Token::LowercaseIdent(name) => {
                             // eat ident
                             self.advance().expect("eat param name");
-                            params.push((name, "Untyped".to_string()));
+                            params.push(name);
                         }
                         Token::Op(name, _) => {
                             if name.as_str() == "=" {
@@ -560,6 +842,21 @@ impl Parser {
                         _ => return Err("params name must be lowercase ident."),
                     }
                 }
+
+                // insert into symbol table
+                // name or params have generic type like: 'a,
+                // we will instance it when parse binding body.
+                let mut generic_type_name = 97u8; // start with 'a'
+                let mut func_type: Vec<String> = vec![];
+
+                for param in params.iter() {
+                    let param_type = format!("{}{}", "'", generic_type_name as char);
+                    func_type.push(param_type.clone());
+                    self.symbols.insert(param.clone(), vec![param_type]);
+                    generic_type_name += 1;
+                }
+                func_type.push(format!("{}{}", "'", generic_type_name as char));
+                self.symbols.insert(name.clone(), func_type);
 
                 // parse body
                 let body = self.parse_expr().expect("parse binding body");
@@ -582,14 +879,16 @@ mod tests {
 
     #[test]
     fn test_comment() {
+        let mut symbols = SymbolTable::new();
         let input =
             r#"(**Requires: [n >= 0].*) 1+1 (*[odd n] is whether [n] is odd.(*ooxx**)**) +1;;"#;
-        let mut parser = Parser::new(input.to_string());
+        let mut parser = Parser::new(input.to_string(), &mut symbols);
         parser.parse().unwrap();
     }
 
     #[test]
     fn test_comment2() {
+        let mut symbols = SymbolTable::new();
         let input = r#"(** [even n] is whether [n] is even.
     Requires: [n >= 0]. *)
 let rec even n =
@@ -599,61 +898,68 @@ let rec even n =
     Requires: [n >= 0]. *)
 and odd n =
   n <> 0 && even (n - 1);;"#;
-        let mut parser = Parser::new(input.to_string());
+        let mut parser = Parser::new(input.to_string(), &mut symbols);
         parser.parse().unwrap();
     }
 
     #[test]
     fn test_defines() {
+        let mut symbols = SymbolTable::new();
         let input = r#"let a =1 and b = 2;;"#;
-        let mut parser = Parser::new(input.to_string());
+        let mut parser = Parser::new(input.to_string(), &mut symbols);
         parser.parse().unwrap();
     }
 
     #[test]
     fn test_ident() {
+        let mut symbols = SymbolTable::new();
         let input = r#"let a_s''' = 3 + 2_00;;"#;
-        let mut parser = Parser::new(input.to_string());
+        let mut parser = Parser::new(input.to_string(), &mut symbols);
         parser.parse().unwrap();
     }
 
     #[test]
     fn test_ident2() {
+        let mut symbols = SymbolTable::new();
         let input = r#"(1+ add x (1+2));;"#;
-        let mut parser = Parser::new(input.to_string());
+        let mut parser = Parser::new(input.to_string(), &mut symbols);
         parser.parse().unwrap();
     }
 
     #[test]
     fn test_paren() {
+        let mut symbols = SymbolTable::new();
         let input = r#"(true && not (true && true));;"#;
-        let mut parser = Parser::new(input.to_string());
+        let mut parser = Parser::new(input.to_string(), &mut symbols);
         parser.parse().unwrap();
     }
 
     #[test]
     fn test_prime() {
+        let mut symbols = SymbolTable::new();
         let input = r#"let is_prime n =
     let n = abs n in
     let rec is_not_divisor d =
       d * d > n || (n mod d <> 0 && is_not_divisor (d + 1)) in
     n <> 1 && is_not_divisor 2;;"#;
 
-        let mut parser = Parser::new(input.to_string());
+        let mut parser = Parser::new(input.to_string(), &mut symbols);
         parser.parse().unwrap();
     }
 
     #[test]
     fn test_branch() {
+        let mut symbols = SymbolTable::new();
         let input = r#"let rec gcd a b = if b = 0 then a else gcd b (a mod b);;"#;
-        let mut parser = Parser::new(input.to_string());
+        let mut parser = Parser::new(input.to_string(), &mut symbols);
         parser.parse().unwrap();
     }
 
     #[test]
     fn test_letin() {
+        let mut symbols = SymbolTable::new();
         let input = r#"let x = 1 in x+1;;"#;
-        let mut parser = Parser::new(input.to_string());
+        let mut parser = Parser::new(input.to_string(), &mut symbols);
         parser.parse().unwrap();
     }
 }

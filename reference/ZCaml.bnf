@@ -4,9 +4,9 @@
 
 (*********************** ZCaml grammar *******************)
 (************************* 改良版语法 *********************)
-module ::= defs | expr | blank
+module ::= expr | blank
 
-defs ::= 'let' [ 'rec' ] let-binding { 'and' let-binding }
+
 
 let-binding ::= lowercase-ident lowercase-ident* '=' expr # function definition or variable definition
 
@@ -35,7 +35,8 @@ parenexpr ::= '(' expr ')'
 integerexpr ::= integer-literal
 boolexpr ::= bool-literal
 
-letexpr ::= defs 'in' expr
+letexpr ::= defs ['in' expr]
+defs ::= 'let' [ 'rec' ] let-binding { 'and' let-binding }
 
 branchexpr ::= 'if' expr 'then' expr 'else' expr
 
