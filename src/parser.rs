@@ -953,11 +953,12 @@ mod tests {
         let input =
             r#"(**Requires: [n >= 0].*) 1+1 (*[odd n] is whether [n] is odd.(*ooxx**)**) +1;;"#;
         let mut parser = Parser::new(input.to_string(), &mut symbols);
-        parser.parse().unwrap();
+        let ast = parser.parse().unwrap();
+        ast.check_type(&mut symbols);
     }
 
     #[test]
-    fn test_comment2() {
+    fn test_env_odd() {
         let mut symbols = SymbolTable::new();
         let input = r#"(** [even n] is whether [n] is even.
     Requires: [n >= 0]. *)
@@ -969,7 +970,8 @@ let rec even n =
 and odd n =
   n <> 0 && even (n - 1);;"#;
         let mut parser = Parser::new(input.to_string(), &mut symbols);
-        parser.parse().unwrap();
+        let ast = parser.parse().unwrap();
+        ast.check_type(&mut symbols);
     }
 
     #[test]
@@ -977,7 +979,8 @@ and odd n =
         let mut symbols = SymbolTable::new();
         let input = r#"let a =1 and b = 2;;"#;
         let mut parser = Parser::new(input.to_string(), &mut symbols);
-        parser.parse().unwrap();
+        let ast = parser.parse().unwrap();
+        ast.check_type(&mut symbols);
     }
 
     #[test]
@@ -985,15 +988,17 @@ and odd n =
         let mut symbols = SymbolTable::new();
         let input = r#"let a_s''' = 3 + 2_00;;"#;
         let mut parser = Parser::new(input.to_string(), &mut symbols);
-        parser.parse().unwrap();
+        let ast = parser.parse().unwrap();
+        ast.check_type(&mut symbols);
     }
 
     #[test]
-    fn test_ident2() {
+    fn test_arithmatic() {
         let mut symbols = SymbolTable::new();
-        let input = r#"(1+ add x (1+2));;"#;
+        let input = r#"1 + 2 * 3 - (-2);;"#;
         let mut parser = Parser::new(input.to_string(), &mut symbols);
-        parser.parse().unwrap();
+        let ast = parser.parse().unwrap();
+        ast.check_type(&mut symbols);
     }
 
     #[test]
@@ -1001,7 +1006,8 @@ and odd n =
         let mut symbols = SymbolTable::new();
         let input = r#"(true && not (true && true));;"#;
         let mut parser = Parser::new(input.to_string(), &mut symbols);
-        parser.parse().unwrap();
+        let ast = parser.parse().unwrap();
+        ast.check_type(&mut symbols);
     }
 
     #[test]
@@ -1014,7 +1020,8 @@ and odd n =
     n <> 1 && is_not_divisor 2;;"#;
 
         let mut parser = Parser::new(input.to_string(), &mut symbols);
-        parser.parse().unwrap();
+        let ast = parser.parse().unwrap();
+        ast.check_type(&mut symbols);
     }
 
     #[test]
@@ -1022,7 +1029,8 @@ and odd n =
         let mut symbols = SymbolTable::new();
         let input = r#"let rec gcd a b = if b = 0 then a else gcd b (a mod b);;"#;
         let mut parser = Parser::new(input.to_string(), &mut symbols);
-        parser.parse().unwrap();
+        let ast = parser.parse().unwrap();
+        ast.check_type(&mut symbols);
     }
 
     #[test]
@@ -1030,6 +1038,16 @@ and odd n =
         let mut symbols = SymbolTable::new();
         let input = r#"let x = 1 in x+1;;"#;
         let mut parser = Parser::new(input.to_string(), &mut symbols);
-        parser.parse().unwrap();
+        let ast = parser.parse().unwrap();
+        ast.check_type(&mut symbols);
+    }
+
+    #[test]
+    fn test_generic() {
+        let mut symbols = SymbolTable::new();
+        let input = r#"let id x = x;;"#;
+        let mut parser = Parser::new(input.to_string(), &mut symbols);
+        let ast = parser.parse().unwrap();
+        ast.check_type(&mut symbols);
     }
 }

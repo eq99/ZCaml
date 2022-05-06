@@ -93,10 +93,14 @@ docker run --rm -it zcaml cargo test
 - 函数调用：`add 2 (-1);;`
 - 分支语句: `let rec gcd a b = if b = 0 then a else gcd b (a mod b);;`
 
-# 类型
+# 类型检查
 - 整型：`int`
 - 布尔型：`bool`
 - 函数类型：`int->int`, `int->int->bool`
+
+⚠️ 不支持高阶函数
+💡 符号表里的类型表示为数组，打印的时候用 ` -> ` join 起来。
+💯 支持简单的泛型, 如：`let id x = x;;`
 
 # 代码解读
 
